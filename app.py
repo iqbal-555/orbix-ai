@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import requests
 import os
 from gtts import gTTS
@@ -153,4 +153,4 @@ with tab3:
 # --- TAB 4: AGRICULTURE ---
 with tab4:
     st.subheader("🌾 कृषि टूल (Agriculture AI)")
-    st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।")
+    st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।") 
