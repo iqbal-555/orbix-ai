@@ -1,6 +1,7 @@
 
 import streamlit as st
 import requests
+import urllib.parse
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
@@ -27,7 +28,6 @@ with tab1:
         if not key:
             return "❌ कृपया साइडबार (Sidebar) में अपनी Gemini API Key डालें। यह बिल्कुल फ्री है!"
         
-        # New Updated v1beta endpoint with supported model path
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
@@ -53,6 +53,19 @@ with tab1:
             with st.spinner("Orbix सोच रहा है..."):
                 response_text = get_ai_response(query, api_key)
                 st.write(response_text)
+                
+                # --- Voice Output Feature ---
+                if not response_text.startswith("❌"):
+                    # क्लीन टेक्स्ट तैयार करना (ताकि बोलने में कोई दिक्कत न हो)
+                    clean_text = response_text.replace('*', '').replace('#', '')
+                    encoded_text = urllib.parse.quote(clean_text)
+                    
+                    # भाषा के हिसाब से आवाज़ सेट करना
+                    tts_lang = "hi" if language == "Hindi" else "en"
+                    tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&tl={tts_lang}&client=tw-ob&q={encoded_text}"
+                    
+                    st.write("🔊 **जवाब सुनें:**")
+                    st.audio(tts_url, format="audio/mp3")
         else:
             st.warning("कृपया अपना सवाल लिखें।")
 
