@@ -27,8 +27,8 @@ with tab1:
         if not key:
             return "❌ कृपया साइडबार (Sidebar) में अपनी Gemini API Key डालें। यह बिल्कुल फ्री है!"
         
-        # Updated to stable v1 endpoint
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={key}"
+        # New Updated v1beta endpoint with supported model path
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
             "contents": [{"parts": [{"text": user_query}]}]
@@ -39,8 +39,10 @@ with tab1:
             if response.status_code == 200:
                 return response.json()['candidates'][0]['content']['parts'][0]['text']
             else:
-                # यह लाइन हमें बताएगी कि गूगल को क्या दिक्कत है (जैसे: Invalid Key, Billing, or Region)
-                error_details = response.json().get('error', {}).get('message', 'Unknown Error')
+                try:
+                    error_details = response.json().get('error', {}).get('message', 'Unknown Error')
+                except:
+                    error_details = response.text
                 return f"❌ गूगल एरर (कोड {response.status_code}): {error_details}"
         except Exception as e:
             return f"❌ तकनीकी समस्या: {str(e)}"
@@ -55,7 +57,7 @@ with tab1:
             st.warning("कृपया अपना सवाल लिखें।")
 
 with tab2:
-    st.subheader("🎬 मनोरंजन और स्ट्रीमिंग टूल")
+    st.subheader("🎬 मनोरंजन और streaming टूल")
     st.info("यह फीचर अगले मॉड्यूल में एक्टिव होगा।")
 
 with tab3:
