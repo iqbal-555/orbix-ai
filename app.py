@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import os
@@ -31,10 +30,10 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🌾 कृषि टूल (Agriculture AI)"
 ])
 
+# --- TAB 1: CHAT WITH AI ---
 with tab1:
     st.subheader("💬 Orbix AI से सीधी बातचीत")
     
-    # Custom CSS for beautiful chat messages
     st.markdown("""
     <style>
     .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
@@ -42,7 +41,6 @@ with tab1:
     </style>
     """, unsafe_allow_html=True)
     
-    # Displaying Previous Chat History
     for chat in st.session_state.chat_history:
         if chat["role"] == "user":
             st.markdown(f'<div class="user-msg">🧑 <b>आप:</b> {chat["text"]}</div>', unsafe_allow_html=True)
@@ -77,7 +75,6 @@ with tab1:
         except Exception as e:
             return f"❌ तकनीकी समस्या: {str(e)}"
 
-    # Chat input
     query = st.text_input("Orbix से कुछ भी पूछें...", key="search_input_mem")
     
     if st.button("पूछें", type="primary", key="send_btn"):
@@ -90,7 +87,6 @@ with tab1:
         else:
             st.warning("कृपया अपना सवाल लिखें।")
             
-    # Unlimited Voice output using gTTS
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
         last_msg = st.session_state.chat_history[-1]["text"]
         if not last_msg.startswith("❌"):
@@ -98,25 +94,63 @@ with tab1:
             tts_lang = "hi" if language == "Hindi" else "en"
             
             try:
-                # 500 characters limit removed to process full text
                 tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
                 fp = io.BytesIO()
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                
                 st.write("🔊 **आखिरी जवाब सुनें:**")
                 st.audio(fp, format="audio/mp3")
             except Exception as voice_err:
                 st.write(f"⚠️ आवाज़ लोड करने में समस्या: {str(voice_err)}")
 
+# --- TAB 2: STREAMING & DOWNLOAD (NEW WORK) ---
 with tab2:
-    st.subheader("🎬 मनोरंजन और streaming टूल")
-    st.info("यह फीचर अगले मॉड्यूल में एक्टिव होगा।")
+    st.subheader("🎬 Orbix मनोरंजन: स्ट्रीमिंग और डाउनलोडर")
+    st.write("यहाँ आप किसी भी यूट्यूब वीडियो का लिंक डालकर उसे सीधे प्ले कर सकते हैं और डाउनलोडर लिंक पा सकते हैं।")
+    
+    # Input field for Video URL
+    video_url = st.text_input("यूट्यूब वीडियो का लिंक (URL) यहाँ पेस्ट करें:", placeholder="https://www.youtube.com/watch?v=...")
+    
+    if video_url:
+        if "youtube.com" in video_url or "youtu.be" in video_url:
+            st.success("🎯 यूट्यूब लिंक मिल गया! नीचे आपका वीडियो लोड हो रहा है:")
+            
+            # 1. Video Search & Streaming Play
+            st.video(video_url)
+            
+            st.write("---")
+            # 2. Video Downloader Button/Links
+            st.subheader("📥 वीडियो डाउनलोड करें")
+            st.write("इस वीडियो को डाउनलोड करने के लिए नीचे दिए गए बटन का उपयोग करें:")
+            
+            # Creating a fast link to a well-known free download service
+            download_helper_url = f"https://www.ssyoutube.com/watch?v={video_url.split('v=')[-1] if 'v=' in video_url else video_url.split('/')[-1]}"
+            
+            st.markdown(f'''
+                <a href="{video_url.replace("youtube.com", "ssyoutube.com").replace("youtu.be/", "ssyoutube.com/watch?v=")}" target="_blank">
+                    <button style="
+                        background-color: #ff4b4b; 
+                        color: white; 
+                        padding: 10px 20px; 
+                        border: none; 
+                        border-radius: 5px; 
+                        cursor: pointer; 
+                        font-weight: bold;
+                        font-size: 16px;">
+                        📥 हाई-क्वालिटी में डाउनलोड करें (Download Video)
+                    </button>
+                </a>
+            ''', unsafe_allow_html=True)
+            st.caption("नोट: बटन दबाते ही एक नया टैब खुलेगा जहाँ से आप सीधे 720p/1080p में वीडियो सेव कर सकते हैं।")
+        else:
+            st.error("❌ कृपया केवल एक वैध यूट्यूब (YouTube) लिंक ही दर्ज करें।")
 
+# --- TAB 3: EDUCATION ---
 with tab3:
     st.subheader("📚 एडवांस ग्लोबल शिक्षा AI")
     st.info("शिक्षा और थ्योरम सॉल्विंग टूल जल्द आ रहा है।")
 
+# --- TAB 4: AGRICULTURE ---
 with tab4:
     st.subheader("🌾 कृषि टूल (Agriculture AI)")
     st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।")
