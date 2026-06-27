@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import requests
 import os
 from gtts import gTTS
@@ -13,7 +13,6 @@ st.caption("द नेक्स्ट-जेन बिलियन डॉलर 
 st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
 api_key = st.sidebar.text_input("Gemini API Key दर्ज करें", type="password", help="अपना फ्री API की यहाँ डालें")
 language = st.sidebar.selectbox("🌐 भाषा चुनें (Select Language)", ["Hindi", "English", "Urdu", "Global"])
-
 # Chat Memory System initializing
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -153,4 +152,4 @@ with tab3:
 # --- TAB 4: AGRICULTURE ---
 with tab4:
     st.subheader("🌾 कृषि टूल (Agriculture AI)")
-    st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।") 
+    st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।")
