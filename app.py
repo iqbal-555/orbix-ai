@@ -84,14 +84,13 @@ with tab1:
         if query:
             with st.spinner("Orbix सोच रहा है..."):
                 response_text = get_ai_response_with_memory(query, api_key, st.session_state.chat_history)
-                
                 st.session_state.chat_history.append({"role": "user", "text": query})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
         else:
             st.warning("कृपया अपना सवाल लिखें।")
             
-    # Reliable Voice output using gTTS
+    # Unlimited Voice output using gTTS
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
         last_msg = st.session_state.chat_history[-1]["text"]
         if not last_msg.startswith("❌"):
@@ -99,8 +98,8 @@ with tab1:
             tts_lang = "hi" if language == "Hindi" else "en"
             
             try:
-                # Generate audio in memory
-                tts = gTTS(text=clean_text[:500], lang=tts_lang, slow=False)
+                # 500 characters limit removed to process full text
+                tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
                 fp = io.BytesIO()
                 tts.write_to_fp(fp)
                 fp.seek(0)
