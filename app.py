@@ -23,12 +23,12 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
     st.subheader("💬 Orbix AI से सीधी बातचीत")
     
-    # Simple Response Function using Gemini API
     def get_ai_response(user_query, key):
         if not key:
             return "❌ कृपया साइडबार (Sidebar) में अपनी Gemini API Key डालें। यह बिल्कुल फ्री है!"
         
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        # Updated to stable v1 endpoint
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
         payload = {
             "contents": [{"parts": [{"text": user_query}]}]
@@ -39,9 +39,11 @@ with tab1:
             if response.status_code == 200:
                 return response.json()['candidates'][0]['content']['parts'][0]['text']
             else:
-                return f"❌ एरर: API कनेक्ट नहीं हो पाई। कोड: {response.status_code}"
+                # यह लाइन हमें बताएगी कि गूगल को क्या दिक्कत है (जैसे: Invalid Key, Billing, or Region)
+                error_details = response.json().get('error', {}).get('message', 'Unknown Error')
+                return f"❌ गूगल एरर (कोड {response.status_code}): {error_details}"
         except Exception as e:
-            return f"❌ कुछ तकनीकी समस्या आई: {str(e)}"
+            return f"❌ तकनीकी समस्या: {str(e)}"
 
     query = st.text_input("Orbix से कुछ भी पूछें...", key="search_input")
     if st.button("पूछें", type="primary"):
