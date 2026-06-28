@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import os
@@ -94,22 +93,19 @@ with tab1:
             except:
                 pass
 
-# --- TAB 2: STREAMING & DOWNLOAD (SMART SEARCH) ---
+# --- TAB 2: STREAMING & DOWNLOAD (STABLE LINKS) ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
     st.write("यहाँ किसी भी गाने, फिल्म या वीडियो का **नाम** लिखें। Orbix उसे खुद ढूंढकर लाएगा!")
     
-    # Text input for song/video name
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary"):
         if video_name:
             with st.spinner("Orbix इंटरनेट पर वीडियो ढूंढ रहा है..."):
                 try:
-                    # Using yt-dlp to search on YouTube and get the URL & Title
                     command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                    
                     output_lines = result.stdout.strip().split('\n')
                     
                     if len(output_lines) >= 2:
@@ -119,21 +115,42 @@ with tab2:
                         
                         st.success(f"🎯 वीडियो मिल गया: **{video_title}**")
                         
-                        # Play Video instantly inside the app
+                        # Play Video
                         st.video(actual_url)
                         
                         st.write("---")
-                        st.subheader("📥 वीडियो डाउनलोड लिंक")
+                        st.subheader("📥 वीडियो डाउनलोड ऑप्शन्स")
+                        st.write("India ke blocked servers ko bypass karne ke liye niche do alag download servers diye gaye hain:")
                         
-                        # Smart download URL creator
-                        download_link = f"https://www.ssyoutube.com/watch?v={video_id}"
+                        # Server 1: SaveFrom Global Server
+                        savefrom_link = f"https://en.savefrom.net/#url={actual_url}"
+                        
+                        # Server 2: Alternate Fast Tool
+                        alt_link = f"https://9xbuddy.xyz/process?url={actual_url}"
+                        
+                        # UI Columns equivalent using simple HTML tables for alignment
                         st.markdown(f'''
-                            <a href="{download_link}" target="_blank">
-                                <button style="background-color: #ff4b4b; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px;">
-                                    📥 हाई-क्वालिटी में डाउनलोड करें (Download Video)
-                                </button>
-                            </a>
+                            <table style="width:100%; border:none;">
+                              <tr style="border:none;">
+                                <td style="border:none; padding:10px;">
+                                  <a href="{savefrom_link}" target="_blank">
+                                    <button style="background-color: #2ecc71; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 15px; width:100%;">
+                                        🟢 सर्वर 1: SaveFrom से डाउनलोड करें
+                                    </button>
+                                  </a>
+                                </td>
+                                <td style="border:none; padding:10px;">
+                                  <a href="{alt_link}" target="_blank">
+                                    <button style="background-color: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 15px; width:100%;">
+                                        🔵 सर्वर 2: Alternate 9XBuddy से डाउनलोड करें
+                                    </button>
+                                  </a>
+                                </td>
+                              </tr>
+                            </table>
                         ''', unsafe_allow_html=True)
+                        
+                        st.caption("💡 **Tip:** Button par click karte hi ek naya page khulega. Wahan apna video format (720p ya mp3) choose karke download start kar sakte hain.")
                     else:
                         st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम थोड़ा बदलकर लिखें।")
                 except Exception as search_err:
