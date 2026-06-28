@@ -9,8 +9,54 @@ import base64
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
+# --- HIDE STREAMLIT UPLOADER TEXT & BADGES (CSS HACK) ---
+# यह सीएसएस कोड 200MB वाले टेक्स्ट और अपलोडर के फालतू लेबल्स को पूरी तरह गायब कर देगा
+st.markdown("""
+    <style>
+    /* Hide the default drag & drop file uploader text and borders */
+    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] > div {
+        display: none !important;
+    }
+    div[data-testid="stFileUploader"] label {
+        display: none !important;
+    }
+    .uploadedFileName {
+        font-size: 12px;
+        color: #2ecc71;
+    }
+    
+    /* ChatGPT-style Custom Layout Mockup */
+    .chatgpt-bar {
+        display: flex;
+        align-items: center;
+        background-color: #f4f4f6;
+        border-radius: 25px;
+        padding: 8px 15px;
+        margin-bottom: 10px;
+        border: 1px solid #e1e1e6;
+    }
+    .chat-icon-left {
+        font-size: 20px;
+        color: #565869;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+    .chat-icon-right {
+        font-size: 20px;
+        color: #565869;
+        margin-left: 10px;
+        cursor: pointer;
+    }
+    .chat-text-mock {
+        flex-grow: 1;
+        color: #8e8e93;
+        font-size: 15px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-ジェन बिलियन डॉलर एआई असिस्टेंट (मल्टीमॉडल एडिशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (प्रोफेशनल एडिशन)")
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -20,23 +66,15 @@ elif os.environ.get("GEMINI_API_KEY"):
 else:
     DEFAULT_API_KEY = ""
 
-# Sidebar Control Panel
-st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
-language = st.sidebar.selectbox("🌐 भाषा चुनें (Select Language)", ["Hindi", "English", "Urdu", "Global"])
-
 if not DEFAULT_API_KEY:
-    st.sidebar.warning("⚠️ API Key कॉन्फ़िगर नहीं है। कृपया Streamlit Dashboard में Secrets सेट करें।")
+    st.sidebar.warning("⚠️ API Key कॉन्फ़िगर नहीं है। कृपया Secrets सेट करें।")
 
-# Initialize History & Search State
+# Initialize Chat History
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-if "search_result" not in st.session_state:
-    st.session_state.search_result = None
-
 if st.sidebar.button("🧹 चैट इतिहास साफ़ करें"):
     st.session_state.chat_history = []
-    st.session_state.search_result = None
     st.rerun()
 
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -46,9 +84,20 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🌾 कृषि टूल (Agriculture AI)"
 ])
 
-# --- TAB 1: CHAT WITH AI (MULTIMODAL WITH MEDIA UPLOADER) ---
+# --- TAB 1: CHAT WITH AI (CHATGPT STYLE) ---
 with tab1:
     st.subheader("💬 Orbix AI से सीधी बातचीत")
+    
+    # Custom Styled Container for Visualizing ChatGPT Layout
+    st.markdown('''
+        <div class="chatgpt-bar">
+            <div class="chat-icon-left">➕</div>
+            <div class="chat-text-mock">Ask Orbix... (नीचे दिए बॉक्स में लिखें या फ़ाइल अटैच करें)</div>
+            <div class="chat-icon-right">🎤</div>
+        </div>
+    ''', unsafe_allow_html=True)
+
+    # Display Chat Messages
     st.markdown("""
     <style>
     .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
@@ -56,105 +105,63 @@ with tab1:
     </style>
     """, unsafe_allow_html=True)
     
-    # Display Chat History
     for chat in st.session_state.chat_history:
         if chat["role"] == "user":
             st.markdown(f'<div class="user-msg">🧑 <b>आप:</b> {chat["text"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="ai-msg">🚀 <b>Orbix:</b> {chat["text"]}</div>', unsafe_allow_html=True)
 
-    # Gemini API Call Handler (Handles text and images)
     def get_ai_multimodal_response(user_query, key, history, uploaded_media=None):
-        if not key:
-            return "❌ API Key नहीं मिली। कृपया Secrets में सेट करें।"
-        
-        # Use gemini-2.5-flash as it supports text, images, and videos natively
+        if not key: return "❌ API Key नहीं मिली।"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
-        
         parts = []
         
-        # If user uploaded an image/media, parse it into base64 for Gemini Vision
         if uploaded_media:
             try:
-                media_bytes = uploaded_media.getvalue()
-                mime_type = uploaded_media.type
-                b64_data = base64.b64encode(media_bytes).decode("utf-8")
-                parts.append({
-                    "inlineData": {
-                        "mimeType": mime_type,
-                        "data": b64_data
-                    }
-                })
-            except Exception as media_err:
-                return f"❌ मीडिया प्रोसेस करने में त्रुटि: {str(media_err)}"
+                b64_data = base64.b64encode(uploaded_media.getvalue()).decode("utf-8")
+                parts.append({"inlineData": {"mimeType": uploaded_media.type, "data": b64_data}})
+            except:
+                pass
         
-        # Append the text query
-        parts.append({"text": user_query if user_query else "इस मीडिया (फोटो/वीडियो) का विश्लेषण करें।"})
-        
-        # Prepare content payload
-        contents = []
-        # Incorporate historical context if available
-        for chat in history:
-            api_role = "user" if chat["role"] == "user" else "model"
-            contents.append({"role": api_role, "parts": [{"text": chat["text"]}]})
-            
-        contents.append({"role": "user", "parts": parts})
+        parts.append({"text": user_query if user_query else "इस मीडिया का विश्लेषण करें।"})
+        contents = [{"role": "user", "parts": parts}]
         payload = {"contents": contents}
         
         try:
             response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                return response.json()['candidates'][0]['content']['parts'][0]['text']
-            else:
-                return f"❌ गूगल सर्वर रिस्पॉन्स एरर (कोड {response.status_code})"
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
         except Exception as e:
             return f"❌ तकनीकी समस्या: {str(e)}"
 
-    # --- THE COMPACT CHAT CONTROLS (Input + Media Button) ---
-    query = st.text_input("Orbix से कुछ भी पूछें...", key="search_input_mem", placeholder="यहाँ अपना सवाल लिखें या नीचे फ़ाइल अटैच करें...")
+    # --- THE CLEAN INPUT SYSTEM ---
+    # 1. Clean File Uploader - Displays ONLY the small standard button now
+    chat_media = st.file_uploader("", type=["jpg", "jpeg", "png", "mp4"], key="chat_media_uploader")
     
-    # ChatGPT style feature expansion right below input box
-    chat_media = st.file_uploader(
-        "➕ फोटो या वीडियो जोड़ें (Add Image/Video)", 
-        type=["jpg", "jpeg", "png", "mp4", "mov"],
-        key="chat_media_uploader",
-        help="चैट में फोटो या वीडियो अटैच करने के लिए यहाँ क्लिक करें"
-    )
-    
-    # Live preview right inside the chat window before sending
     if chat_media:
-        if "image" in chat_media.type:
-            st.image(chat_media, caption="📎 भेजने के लिए तैयार फोटो", width=250)
-        elif "video" in chat_media.type:
-            st.video(chat_media)
+        st.markdown(f"<span class='uploadedFileName'>📎 फ़ाइल जोड़ी गई: {chat_media.name}</span>", unsafe_allow_html=True)
 
-    if st.button("पूछें", type="primary", key="send_btn"):
+    # 2. Direct Text Input
+    query = st.text_input("", key="search_input_mem", placeholder="यहाँ अपना सवाल लिखें...")
+
+    if st.button("पूछें 🚀", type="primary", key="send_btn"):
         if query or chat_media:
-            with st.spinner("Orbix देख और सोच रहा है..."):
-                # Run multimodal analysis
+            with st.spinner("Orbix सोच रहा है..."):
                 response_text = get_ai_multimodal_response(query, DEFAULT_API_KEY, st.session_state.chat_history, chat_media)
-                
-                # Append to chat list
-                display_user_text = query if query else f"📁 [मीडिया फ़ाइल भेजी गई: {chat_media.name}]"
-                st.session_state.chat_history.append({"role": "user", "text": display_user_text})
+                display_text = query if query else f"📁 [मीडिया: {chat_media.name}]"
+                st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
-        else:
-            st.warning("कृपया कुछ टाइप करें या फोटो/वीडियो अपलोड करें।")
-            
-    # Audio Speech Output for final response
+
+    # Voice TTS Output
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
         last_msg = st.session_state.chat_history[-1]["text"]
         if not last_msg.startswith("❌"):
-            clean_text = last_msg.replace('*', '').replace('#', '')
-            tts_lang = "hi" if language == "Hindi" else "en"
             try:
-                tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
+                tts = gTTS(text=last_msg.replace('*', ''), lang="hi" if language == "Hindi" else "en", slow=False)
                 fp = io.BytesIO()
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                st.write("🔊 **आखिरी जवाब सुनें:**")
                 st.audio(fp, format="audio/mp3")
             except:
                 pass
@@ -164,35 +171,27 @@ with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन प्लेयर")
     video_name = st.text_input("📝 वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
-    if st.button("视频 ढूंढें 🔍", type="primary", key="search_ent_btn"):
+    if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
         if video_name:
             with st.spinner("Orbix वीडियो ढूंढ रहा है..."):
                 try:
                     command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
                     output_lines = result.stdout.strip().split('\n')
-                    
                     if len(output_lines) >= 2:
-                        st.session_state.search_result = {
-                            "title": output_lines[0],
-                            "youtube_url": f"https://www.youtube.com/watch?v={output_lines[1]}"
-                        }
+                        st.session_state.search_result = {"title": output_lines[0], "youtube_url": f"https://www.youtube.com/watch?v={output_lines[1]}"}
                         st.rerun()
-                    else:
-                        st.error("❌ कोई वीडियो नहीं मिला।")
-                except Exception as search_err:
-                    st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
+                except:
+                    st.error("❌ खोजने में समस्या हुई।")
 
     if st.session_state.search_result:
-        res = st.session_state.search_result
-        st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
-        st.video(res['youtube_url'])
+        st.success(f"🎯 वीडियो मिल गया: **{st.session_state.search_result['title']}**")
+        st.video(st.session_state.search_result['youtube_url'])
 
-# --- TAB 3 & 4 ---
 with tab3:
     st.subheader("📚 एडवांस ग्लोबल शिक्षा AI")
-    st.info("शिक्षा और थ्योरम सॉल्विंग टूल जल्द आ रहा है।")
+    st.info("जल्द आ रहा है।")
 
 with tab4:
     st.subheader("🌾 कृषि टूल (Agriculture AI)")
-    st.info("फसल प्रबंधन प्रणालियाँ जल्द आ रही हैं।")
+    st.info("जल्द आ रहा है।")
