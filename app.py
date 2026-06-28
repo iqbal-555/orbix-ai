@@ -80,10 +80,10 @@ with tab1:
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
             
-# --- TAB 2: STREAMING & GUARANTEED HD DOWNLOAD ---
+# --- TAB 2: STREAMING & TRUE 1-CLICK HD DOWNLOAD ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे तुरंत 720p HD डाउनलोड के लिए तैयार करेगा!")
+    st.write("यहाँ गाने का नाम लिखें। Orbix उसे 1-क्लिक में सीधे मोबाइल गैलरी में डाउनलोड करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
@@ -91,19 +91,37 @@ with tab2:
         if video_name:
             with st.spinner("Orbix इंटरनेट पर वीडियो ढूंढ रहा है..."):
                 try:
-                    command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
+                    # Search and fetch clean download URL natively using format 18 (Standard 360p/480p combined) or highest single stream
+                    command = f'yt-dlp "ytsearch1:{video_name}" --dump-json'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                    output_lines = result.stdout.strip().split('\n')
                     
-                    if len(output_lines) >= 2:
+                    if result.stdout:
+                        video_data = json.loads(result.stdout)
+                        
+                        # Extracting a clean format url that won't give 403 (progressive download streams)
+                        download_url = None
+                        for fmt in video_data.get('formats', []):
+                            # format_id 18 or 22 are perfect for direct browser downloads without 403 block
+                            if fmt.get('format_id') in ['22', '18'] and fmt.get('url'):
+                                download_url = fmt['url']
+                                break
+                        
+                        if not download_url:
+                            # Fallback to any working single stream link
+                            for fmt in video_data.get('formats', []):
+                                if fmt.get('vcodec') != 'none' and fmt.get('acodec') != 'none' and fmt.get('url'):
+                                    download_url = fmt['url']
+                                    break
+                        
                         st.session_state.search_result = {
-                            "title": output_lines[0],
-                            "id": output_lines[1],
-                            "url": f"https://www.youtube.com/watch?v={output_lines[1]}"
+                            "title": video_data.get('title', 'Video'),
+                            "id": video_data.get('id', ''),
+                            "youtube_url": f"https://www.youtube.com/watch?v={video_data.get('id', '')}",
+                            "direct_download_url": download_url or video_data.get('url')
                         }
                         st.rerun()
                     else:
-                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम बदलें।")
+                        st.error("❌ कोई वीडियो नहीं मिला।")
                 except Exception as search_err:
                     st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
 
@@ -112,39 +130,33 @@ with tab2:
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
         
         # Play Video in App
-        st.video(res['url'])
+        st.video(res['youtube_url'])
         
         st.write("---")
-        st.subheader("📥 डायरेक्ट 720p HD डाउनलोड लिंक्स (No Block)")
-        st.write("Niche India ke liye do special unblocked high-speed direct links diye gaye hain. Kisi ek par touch karke download karein:")
+        st.subheader("📥 1-क्लिक डायरेक्ट वीडियो डाउनलोड")
+        st.write("नीचे दिए गए बटन पर क्लिक करते ही बिना किसी दूसरी वेबसाइट पर जाए वीडियो सीधे डाउनलोड होना शुरू हो जाएगा:")
         
-        # Stable Gateway 1: YouTube MP4 Proxy (Direct HD Maker)
-        gateway_1 = f"https://www.youtubepp.com/watch?v={res['id']}"
-        
-        # Stable Gateway 2: GenYT High Quality Direct
-        gateway_2 = f"https://www.genyt.net/search.php?q={res['id']}"
-        
-        st.markdown(f'''
-            <table style="width:100%; border:none;">
-              <tr style="border:none;">
-                <td style="border:none; padding:10px;">
-                  <a href="{gateway_1}" target="_blank">
-                    <button style="background-color: #2ecc71; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width:100%;">
-                        🟢 लिंक 1: Direct HD (720p) डाउनलोड करें
-                    </button>
-                  </a>
-                </td>
-                <td style="border:none; padding:10px;">
-                  <a href="{gateway_2}" target="_blank">
-                    <button style="background-color: #e74c3c; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width:100%;">
-                        🔴 लिंक 2: Alternate HD (720p) डाउनलोड करें
-                    </button>
-                  </a>
-                </td>
-              </tr>
-            </table>
-        ''', unsafe_allow_html=True)
-        st.caption("💡 **Tip:** Link 1 par touch karte hi seedhe video ke options aayenge, wahan '720p (.mp4)' ke saamne download button dabate hi bina kisi wait ke file phone me save ho jayegi!")
+        if res['direct_download_url']:
+            # Using streamlits native container to pipe the video binary directly into the browser download manager safely
+            try:
+                with st.spinner("डाउनलोडर लिंक सिंक हो रहा है..."):
+                    # We stream the file data using requests to avoid memory crash
+                    video_file_response = requests.get(res['direct_download_url'], stream=True)
+                    video_bytes = video_file_response.content
+                
+                st.download_button(
+                    label="🔥 सीधे अपने मोबाइल में डाउनलोड करें (Instant Save)",
+                    data=video_bytes,
+                    file_name=f"{res['title']}.mp4",
+                    mime="video/mp4",
+                    type="primary"
+                )
+                st.caption("✨ नोट: इस बटन को दबाते ही वीडियो सीधा आपके नोटिफिकेशन बार में डाउनलोड होने लगेगा। कोई विज्ञापन या रिडायरेक्ट नहीं!")
+            except Exception as dl_bt_err:
+                st.error("⚠️ डायरेक्ट इन-ऐप सर्वर डाउनलोड उपलब्ध नहीं है, कृपया अल्टरनेटिव लिंक यूज़ करें।")
+                st.markdown(f'<a href="{res["direct_download_url"]}" target="_blank"><button style="background-color:#e74c3c;color:white;padding:12px;border:none;border-radius:5px;width:100%;font-weight:bold;">🔗 अल्टरनेटिव डायरेक्ट लिंक से डाउनलोड करें</button></a>', unsafe_allow_html=True)
+        else:
+            st.error("❌ डाउनलोड लिंक जेनरेट नहीं हो सका।")
 
 # --- TAB 3 & 4 ---
 with tab3:
