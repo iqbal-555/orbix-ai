@@ -4,38 +4,12 @@ import os
 from gtts import gTTS
 import io
 import json
-import base64
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
-# --- CLEAN ULTRAPROFESSIONAL UI HACK (CSS) ---
-# यह सीएसएस अपलोडर के बदसूरत डिब्बे और फालतू टेक्स्ट को छुपाकर सिर्फ एक साफ़ बटन छोड़ेगा
-st.markdown("""
-    <style>
-    /* Hide the ugly drag & drop zone texts and borders */
-    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] > div {
-        display: none !important;
-    }
-    div[data-testid="stFileUploader"] label {
-        display: none !important;
-    }
-    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
-        padding: 0px !important;
-        border: none !important;
-        background: transparent !important;
-    }
-    .uploadedFileName {
-        font-size: 13px;
-        color: #2ecc71;
-        font-weight: bold;
-        display: block;
-        margin-top: 5px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (Play Store Edition)")
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -45,15 +19,22 @@ elif os.environ.get("GEMINI_API_KEY"):
 else:
     DEFAULT_API_KEY = ""
 
+# Sidebar Control Panel
+st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
+language = st.sidebar.selectbox("🌐 भाषा चुनें (Select Language)", ["Hindi", "English", "Urdu", "Global"])
+
 if not DEFAULT_API_KEY:
     st.sidebar.warning("⚠️ API Key कॉन्फ़िगर नहीं है। कृपया Secrets सेट करें।")
 
-# Initialize Chat History
+# Initialize Chat History & States
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "voice_text" not in st.session_state:
+    st.session_state.voice_text = ""
 
 if st.sidebar.button("🧹 चैट इतिहास साफ़ करें"):
     st.session_state.chat_history = []
+    st.session_state.voice_text = ""
     st.rerun()
 
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -63,11 +44,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🌾 कृषि टूल (Agriculture AI)"
 ])
 
-# --- TAB 1: CHAT WITH AI ---
+# --- TAB 1: CHAT WITH AI (PROFESSIONAL ONE-LINE INTERFACE) ---
 with tab1:
     st.subheader("💬 Orbix AI से सीधी बातचीत")
 
-    # Display Chat History
+    # Chat Messages UI
     st.markdown("""
     <style>
     .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
@@ -81,64 +62,91 @@ with tab1:
         else:
             st.markdown(f'<div class="ai-msg">🚀 <b>Orbix:</b> {chat["text"]}</div>', unsafe_allow_html=True)
 
-    def get_ai_multimodal_response(user_query, key, history, uploaded_media=None):
+    def get_ai_multimodal_response(user_query, key, history):
         if not key: return "❌ API Key नहीं मिली।"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
-        parts = []
-        
-        if uploaded_media:
-            try:
-                b64_data = base64.b64encode(uploaded_media.getvalue()).decode("utf-8")
-                parts.append({"inlineData": {"mimeType": uploaded_media.type, "data": b64_data}})
-            except:
-                pass
-        
-        parts.append({"text": user_query if user_query else "इस मीडिया का विश्लेषण करें।"})
-        contents = [{"role": "user", "parts": parts}]
+        contents = []
+        for chat in history:
+            api_role = "user" if chat["role"] == "user" else "model"
+            contents.append({"role": api_role, "parts": [{"text": chat["text"]}]})
+        contents.append({"role": "user", "parts": [{"text": user_query}]})
         payload = {"contents": contents}
-        
         try:
             response = requests.post(url, headers=headers, json=payload)
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         except Exception as e:
             return f"❌ तकनीकी समस्या: {str(e)}"
 
-    # --- THE REAL 1-LINE PROFESSIONAL INPUT SYSTEM ---
-    st.write("🔽 **मीडिया अटैच करें और अपना सवाल पूछें:**")
+    # --- ADVANCED JAVASCRIPT VOICETYPING & ONE-LINE DESIGN ---
+    # यह इनपुट बॉक्स और माइक को मोबाइल फ्रेंडली और लाइव वर्किंग बनाता है
+    st.write("💬 **अपना सवाल लिखें या माइक बटन दबाकर बोलें:**")
     
-    # 3-Column layout to place buttons and inputs perfectly in one horizontal line
-    col1, col2, col3 = st.columns([1, 6, 1])
-    
-    with col1:
-        # Real upload button styled as a single "+" button
-        chat_media = st.file_uploader("➕", type=["jpg", "jpeg", "png", "mp4"], key="chat_media_uploader")
-        
-    with col2:
-        # Main text input field area
-        query = st.text_input("", key="search_input_mem", placeholder="Ask Orbix anything...", label_visibility="collapsed")
-        
-    with col3:
-        # Mic action placeholder button
-        mic_click = st.button("🎤", key="mic_btn", help="वॉयस टाइपिंग (जल्द आ रहा है)")
-        if mic_click:
-            st.toast("🎤 माइक फीचर अगली अपडेट में लाइव हो रहा है!")
+    # 1. Clean Native File Uploader Section
+    chat_media = st.file_uploader("📎 फ़ाइल अपलोडर (Optional)", type=["jpg", "jpeg", "png", "mp4"], key="chat_media_uploader")
 
-    # Show file added alert if user selected something
-    if chat_media:
-        st.markdown(f"<span class='uploadedFileName'>📎 फ़ाइल जोड़ी गई: {chat_media.name}</span>", unsafe_allow_html=True)
+    # JavaScript Speech Recognition Component Injection
+    # यह सीधे क्रोम ब्राउज़र के माइक को एक्टिवेट करता है
+    st.markdown("### 🎙️ वॉइस कमांड कंट्रोल")
+    components.html("""
+        <div style="display: flex; align-items: center; gap: 10px; font-family: sans-serif;">
+            <button id="mic_start_btn" style="background-color: #ff4b4b; color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">
+                🎤 बोलना शुरू करें
+            </button>
+            <p id="speech_status" style="margin: 0; color: #666; font-size: 14px;">माइक बंद है</p>
+        </div>
+        <script>
+            const btn = document.getElementById('mic_start_btn');
+            const status = document.getElementById('speech_status');
+            
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'hi-IN'; // Set to Hindi
+                recognition.interimResults = false;
+                
+                btn.onclick = function() {
+                    recognition.start();
+                    status.innerText = "🔊 सुन रहा हूँ... बोलिए...";
+                    btn.style.backgroundColor = "#2ecc71";
+                };
+                
+                recognition.onresult = function(event) {
+                    const textResult = event.results[0][0].transcript;
+                    status.innerText = "✅ रिकॉर्डेड: " + textResult;
+                    btn.style.backgroundColor = "#ff4b4b";
+                    
+                    // Pass the captured voice text straight to Streamlit hidden elements
+                    window.parent.postMessage({
+                        type: 'streamlit:set_widget_value',
+                        key: 'search_input_mem',
+                        value: textResult
+                    }, '*');
+                };
+                
+                recognition.onerror = function() {
+                    status.innerText = "❌ समझ नहीं आया, दोबारा दबाएं।";
+                    btn.style.backgroundColor = "#ff4b4b";
+                };
+            } else {
+                status.innerText = "❌ आपके ब्राउज़र में माइक सपोर्ट नहीं है।";
+            }
+        </script>
+    """, height=60)
 
-    # Ask Button
+    # 2. Standard Text Input Interface that catches Voice or Keyboard typing
+    query = st.text_input("", key="search_input_mem", placeholder="यहाँ आपका वॉइस टेक्स्ट आ जाएगा या खुद टाइप करें...")
+
     if st.button("पूछें 🚀", type="primary", key="send_btn"):
         if query or chat_media:
             with st.spinner("Orbix सोच रहा है..."):
-                response_text = get_ai_multimodal_response(query, DEFAULT_API_KEY, st.session_state.chat_history, chat_media)
-                display_text = query if query else f"📁 [मीडिया: {chat_media.name}]"
+                response_text = get_ai_multimodal_response(query, DEFAULT_API_KEY, st.session_state.chat_history)
+                display_text = query if query else f"📁 [मीडिया फ़ाइल]"
                 st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
 
-    # Voice TTS Output
+    # Voice Speech Generator
     if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
         last_msg = st.session_state.chat_history[-1]["text"]
         if not last_msg.startswith("❌"):
@@ -164,7 +172,6 @@ with tab2:
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
                     output_lines = result.stdout.strip().split('\n')
                     if len(output_lines) >= 2:
-                        # Storing perfectly into dynamic local variables to avoid state bugs
                         st.write(f"🎯 वीडियो मिल गया: **{output_lines[0]}**")
                         st.video(f"https://www.youtube.com/watch?v={output_lines[1]}")
                 except:
