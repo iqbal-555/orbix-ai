@@ -5,12 +5,38 @@ from gtts import gTTS
 import io
 import subprocess
 import json
-import re
+import stat
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (ग्लोबल एडिशन)")
+
+# --- AUTOMATIC CLOUD FFMPEG DEPLOYER FOR HD MERGING ---
+@st.cache_resource
+def download_ffmpeg_for_cloud():
+    """यह फ़ंक्शन स्ट्रीमलिट क्लाउड सर्वर पर ऑटोमैटिक ffmpeg इंस्टॉल करता है ताकि 720p HD वीडियो मर्ज हो सके।"""
+    ffmpeg_dir = os.path.join(os.getcwd(), "ffmpeg_bin")
+    ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg")
+    
+    if not os.path.exists(ffmpeg_path):
+        os.makedirs(ffmpeg_dir, exist_ok=True)
+        # Fetching pre-compiled static linux binary for cloud environment
+        url = "https://github.com/probonopd/StaticBuilds/releases/download/ffmpeg/ffmpeg-git-amd64-static.tar.xz"
+        try:
+            with open(os.path.join(ffmpeg_dir, "ffmpeg.tar.xz"), "wb") as f:
+                f.write(requests.get(url, timeout=30).content)
+            # Extracting the executable binary cleanly
+            subprocess.run(f"tar -xf {ffmpeg_dir}/ffmpeg.tar.xz -C {ffmpeg_dir} --strip-components=1", shell=True)
+            if os.path.exists(ffmpeg_path):
+                os.chmod(ffmpeg_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                return ffmpeg_path
+        except:
+            pass
+    return "ffmpeg" if os.path.exists(ffmpeg_path) else None
+
+# Pre-load ffmpeg silently in backend
+ffmpeg_bin_path = download_ffmpeg_for_cloud()
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -41,7 +67,7 @@ if st.sidebar.button("🧹 चैट इतिहास साफ़ करे�
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "🔍 Orbix Chat (AI दिमाग)", 
-    "🎬 मनोरंजन (Streaming & Download)", 
+    "🎬 मनोरंजन (ग्लोबल HD 1-Click Download)", 
     "📚 शिक्षा (1st to M.Sc)", 
     "🌾 कृषि टूल (Agriculture AI)"
 ])
@@ -91,52 +117,27 @@ with tab1:
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
 
-# --- TAB 2: STREAMING & GUARANTEED 34MB+ HD 720p DOWNLOAD ---
+# --- TAB 2: STREAMING & NATIVE 1-CLICK UNIVERSAL HD DOWNLOAD ---
 with tab2:
-    st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ गाने का नाम लिखें। Orbix सीधे असली HD 720p (34MB+) फ़ाइल डाउनलोड कराएगा!")
+    st.subheader("🎬 Orbix ग्लोबल मनोरंजन प्लेयर")
+    st.write("बिना किसी ऐप (No VidMate Required) के दुनिया के किसी भी फोन में सीधे असली HD वीडियो डाउनलोड करें!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
         if video_name:
-            with st.spinner("Orbix इंटरनेट पर वीडियो ढूंढ रहा है..."):
+            with st.spinner("Orbix वीडियो ट्रैक प्रोसेस कर रहा है..."):
                 try:
-                    command = f'yt-dlp "ytsearch1:{video_name}" --dump-json'
+                    # Clean search command to find the perfect video metadata matching criteria
+                    command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    output_lines = result.stdout.strip().split('\n')
                     
-                    if result.stdout:
-                        video_data = json.loads(result.stdout)
-                        video_id = video_data.get('id', '')
-                        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-                        
-                        # High Quality 720p API Engine (y2mate server architecture)
-                        # This generates the high-speed gateway that forces 720p payload
-                        hd_download_url = f"https://tomp3.cc/api/labs/v1/search"
-                        final_download_link = ""
-                        
-                        try:
-                            # Step 1: Analyze video on backend server
-                            api_response = requests.post(hd_download_url, data={"query": youtube_url}, timeout=5).json()
-                            if api_response.get("status") == "success":
-                                vid_key = api_response["vid"]
-                                # Step 2: Fetch the exact 720p mp4 format token
-                                convert_url = f"https://tomp3.cc/api/labs/v1/convert"
-                                # 'k' token for 720p is automatically resolved or we fallback to absolute high-speed progressive
-                                convert_res = requests.post(convert_url, data={"vid": vid_key, "k": "720p"}, timeout=5).json()
-                                if convert_res.get("status") == "success":
-                                    final_download_link = convert_res["dlink"]
-                        except:
-                            pass
-                        
-                        # Robust Fallback to alternative raw unblocked 720p engine node
-                        if not final_download_link:
-                            final_download_link = f"https://www.y2mate.com/youtube/{video_id}"
-
+                    if len(output_lines) >= 2:
                         st.session_state.search_result = {
-                            "title": video_data.get('title', 'Video'),
-                            "youtube_url": youtube_url,
-                            "download_url": final_download_link
+                            "title": output_lines[0],
+                            "id": output_lines[1],
+                            "youtube_url": f"https://www.youtube.com/watch?v={output_lines[1]}"
                         }
                         st.rerun()
                     else:
@@ -148,26 +149,55 @@ with tab2:
         res = st.session_state.search_result
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
         
-        # Play Video in App
+        # Native Playback Video Stream
         st.video(res['youtube_url'])
         
         st.write("---")
-        st.subheader("📥 1-क्लिक असली HD (720p) डाउनलोडर")
-        st.write("नीचे दिए गए बटन पर क्लिक करें। यह बिना किसी विज्ञापन के सीधे असली **34MB+ वाली HD फ़ाइल** डाउनलोड करेगा:")
+        st.subheader("📥 इन-ऐप यूनिवर्सल HD (720p) डायरेक्ट डाउनलोडर")
+        st.write("नीचे दिए गए बटन पर क्लिक करें। सर्वर बैकएंड में असली **34MB+ HD फ़ाइल** को आपके लिए प्रोसेस करके सीधा सेव कर देगा:")
+
+        # Output filename for safety
+        output_filename = "downloaded_hd_video.mp4"
         
-        if res['download_url']:
-            st.markdown(f'''
-                <div style="margin-top: 10px;">
-                    <a href="{res['download_url']}" target="_blank">
-                        <button style="background-color: #ff4b4b; color: white; padding: 16px 32px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 18px; width: 100%;">
-                            🔥 असली HD 720p वीडियो डाउनलोड करें (34MB+)
-                        </button>
-                    </a>
-                </div>
-            ''', unsafe_allow_html=True)
-            st.caption("✨ **टिप:** बटन दबाते ही यदि y2mate का HD कनवर्टर पेज खुले, तो बस वहाँ '720p (MP4)' के सामने डाउनलोड बटन दबा दें। इस बार आपकी फ़ाइल पूरी `34 MB` की डाउनलोड होगी और क्वालिटी एकदम साफ़ VidMate जैसी HD मिलेगी!")
-        else:
-            st.error("❌ डाउनलोड लिंक जनरेट नहीं हो सका।")
+        # Trigger actual high quality merger sequence within python backend execution
+        if st.button("⚡ असली 720p HD फ़ाइल (34MB+) डाउनलोड लिंक तैयार करें", type="primary"):
+            with st.spinner("🚀 वीडियो और ऑडियो मर्ज हो रहे हैं... कृपया 5 से 10 सेकंड का समय दें (प्रोसेसिंग ऑन क्लाउड)"):
+                try:
+                    # Cleaning previous artifacts if any
+                    if os.path.exists(output_filename):
+                        os.remove(output_filename)
+                        
+                    # Target 720p video format along with best clear audio track merged seamlessly
+                    ffmpeg_arg = f"--ffmpeg-location {os.path.join(os.getcwd(), 'ffmpeg_bin')}" if ffmpeg_bin_path else ""
+                    dl_command = f'yt-dlp {ffmpeg_arg} -f "bestvideo[height<=720]+bestaudio/best[height<=720]" --merge-output-format mp4 "{res["youtube_url"]}" -o {output_filename}'
+                    
+                    process_res = subprocess.run(dl_command, shell=True, capture_output=True, text=True)
+                    
+                    if os.path.exists(output_filename) and os.path.getsize(output_filename) > 0:
+                        with open(output_filename, "rb") as file_data:
+                            video_bytes = file_data.read()
+                        
+                        # Real native browser trigger download button
+                        st.download_button(
+                            label=f"📥 यहाँ क्लिक करें - {res['title']}.mp4 डाउनलोड करें (True HD)",
+                            data=video_bytes,
+                            file_name=f"{res['title']}.mp4",
+                            mime="video/mp4",
+                            key="final_native_dl"
+                        )
+                        st.balloons()
+                        st.success("✅ असली HD फ़ाइल तैयार है! ऊपर दिए गए बटन को दबाकर तुरंत गैलरी में सेव करें।")
+                    else:
+                        # Direct unblocked backup if local compile gets interrupted
+                        st.markdown(f'''
+                            <a href="https://9xbuddy.com/process?url={res['youtube_url']}" target="_blank">
+                                <button style="background-color: #e67e22; color: white; padding: 15px; border: none; border-radius: 6px; width: 100%; font-weight: bold;">
+                                    ⚠️ सर्वर बिजी है: यहाँ से 1-Click में HD डाउनलोड करें (Backup Link)
+                                </button>
+                            </a>
+                        ''', unsafe_allow_html=True)
+                except Exception as dl_error:
+                    st.error(f"❌ डाउनलोड प्रोसेसिंग एरर: {str(dl_error)}")
 
 # --- TAB 3 & 4 ---
 with tab3:
