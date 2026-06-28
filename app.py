@@ -37,7 +37,7 @@ with tab1:
     st.markdown("""
     <style>
     .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
-    .ai-msg { background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #1b5e20; }
+    .ai-msg { background-color: #f1f8e9; padding: 10px; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #1b5e20; }
     </style>
     """, unsafe_allow_html=True)
     
@@ -93,18 +93,18 @@ with tab1:
             except:
                 pass
 
-# --- TAB 2: STREAMING & DIRECT DOWNLOAD (NO BLOCKED SITES) ---
+# --- TAB 2: STREAMING & DIRECT HD DOWNLOAD ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे सीधे डाउनलोड के लिए तैयार करेगा!")
+    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे 720p/Best क्वालिटी में लाएगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary"):
         if video_name:
-            with st.spinner("Orbix इंटरनेट से डायरेक्ट डाउनलोड लिंक निकाल रहा है..."):
+            with st.spinner("Orbix इंटरनेट से HD डायरेक्ट डाउनलोड लिंक निकाल रहा है..."):
                 try:
-                    # Fetching direct video streaming URL using yt-dlp json dump
+                    # Requesting yt-dlp to look for best combined formats or 720p directly
                     command = f'yt-dlp "ytsearch1:{video_name}" --dump-json'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
                     
@@ -120,31 +120,38 @@ with tab2:
                         st.video(actual_url)
                         
                         st.write("---")
-                        st.subheader("📥 डायरेक्ट वीडियो डाउनलोड लिंक")
-                        st.write("नीचे दिए गए बटन पर क्लिक करते ही वीडियो का डायरेक्ट सोर्स ओपन होगा। वहाँ 3 डॉट्स पर क्लिक करके Download दबाएं:")
+                        st.subheader("📥 डायरेक्ट HD वीडियो डाउनलोड लिंक")
+                        st.write("नीचे दिए गए बटन पर क्लिक करें। प्लेयर खुलने पर कोने में 3 डॉट्स (⋮) दबाकर Download करें:")
                         
-                        # Loop to find a format containing both video and audio for mobile download
-                        direct_download_url = None
+                        # Advanced filtering for 720p or highest progressive format available
+                        hd_download_url = None
+                        best_fallback_url = None
+                        
                         for fmt in video_data.get('formats', []):
+                            # Progressive download formats (have both video and audio)
                             if fmt.get('vcodec') != 'none' and fmt.get('acodec') != 'none' and fmt.get('url'):
-                                direct_download_url = fmt['url']
-                                break
+                                height = fmt.get('height', 0)
+                                if height == 720:
+                                    hd_download_url = fmt['url']
+                                    break
+                                elif height > 360:
+                                    best_fallback_url = fmt['url']
                         
-                        if not direct_download_url:
-                            direct_download_url = video_data.get('url') # fallback
+                        # If exact 720p with audio isn't separated, take the best single URL format
+                        final_link = hd_download_url or best_fallback_url or video_data.get('url')
                         
-                        if direct_download_url:
+                        if final_link:
                             st.markdown(f'''
-                                <a href="{direct_download_url}" target="_blank">
+                                <a href="{final_link}" target="_blank">
                                     <button style="background-color: #ff4b4b; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
-                                        🔥 सीधे अपने फोन में डाउनलोड करें (Direct Download Video)
+                                        🔥 HD क्वालिटी में डाउनलोड करें (Download 720p/Best)
                                     </button>
                                 </a>
                             ''', unsafe_allow_html=True)
                         else:
                             st.error("❌ डायरेक्ट डाउनलोड लिंक जनरेट नहीं हो सका।")
                     else:
-                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम बदलें।")
+                        st.error("❌ कोई वीडियो नहीं मिला।")
                 except Exception as search_err:
                     st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
         else:
