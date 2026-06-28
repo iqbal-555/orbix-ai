@@ -3,60 +3,39 @@ import requests
 import os
 from gtts import gTTS
 import io
-import subprocess
 import json
 import base64
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
-# --- HIDE STREAMLIT UPLOADER TEXT & BADGES (CSS HACK) ---
-# यह सीएसएस कोड 200MB वाले टेक्स्ट और अपलोडर के फालतू लेबल्स को पूरी तरह गायब कर देगा
+# --- CLEAN ULTRAPROFESSIONAL UI HACK (CSS) ---
+# यह सीएसएस अपलोडर के बदसूरत डिब्बे और फालतू टेक्स्ट को छुपाकर सिर्फ एक साफ़ बटन छोड़ेगा
 st.markdown("""
     <style>
-    /* Hide the default drag & drop file uploader text and borders */
+    /* Hide the ugly drag & drop zone texts and borders */
     div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] > div {
         display: none !important;
     }
     div[data-testid="stFileUploader"] label {
         display: none !important;
     }
+    div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
+        padding: 0px !important;
+        border: none !important;
+        background: transparent !important;
+    }
     .uploadedFileName {
-        font-size: 12px;
+        font-size: 13px;
         color: #2ecc71;
-    }
-    
-    /* ChatGPT-style Custom Layout Mockup */
-    .chatgpt-bar {
-        display: flex;
-        align-items: center;
-        background-color: #f4f4f6;
-        border-radius: 25px;
-        padding: 8px 15px;
-        margin-bottom: 10px;
-        border: 1px solid #e1e1e6;
-    }
-    .chat-icon-left {
-        font-size: 20px;
-        color: #565869;
-        margin-right: 10px;
-        cursor: pointer;
-    }
-    .chat-icon-right {
-        font-size: 20px;
-        color: #565869;
-        margin-left: 10px;
-        cursor: pointer;
-    }
-    .chat-text-mock {
-        flex-grow: 1;
-        color: #8e8e93;
-        font-size: 15px;
+        font-weight: bold;
+        display: block;
+        margin-top: 5px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (प्रोफेशनल एडिशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट")
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -84,20 +63,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🌾 कृषि टूल (Agriculture AI)"
 ])
 
-# --- TAB 1: CHAT WITH AI (CHATGPT STYLE) ---
+# --- TAB 1: CHAT WITH AI ---
 with tab1:
     st.subheader("💬 Orbix AI से सीधी बातचीत")
-    
-    # Custom Styled Container for Visualizing ChatGPT Layout
-    st.markdown('''
-        <div class="chatgpt-bar">
-            <div class="chat-icon-left">➕</div>
-            <div class="chat-text-mock">Ask Orbix... (नीचे दिए बॉक्स में लिखें या फ़ाइल अटैच करें)</div>
-            <div class="chat-icon-right">🎤</div>
-        </div>
-    ''', unsafe_allow_html=True)
 
-    # Display Chat Messages
+    # Display Chat History
     st.markdown("""
     <style>
     .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
@@ -134,16 +104,31 @@ with tab1:
         except Exception as e:
             return f"❌ तकनीकी समस्या: {str(e)}"
 
-    # --- THE CLEAN INPUT SYSTEM ---
-    # 1. Clean File Uploader - Displays ONLY the small standard button now
-    chat_media = st.file_uploader("", type=["jpg", "jpeg", "png", "mp4"], key="chat_media_uploader")
+    # --- THE REAL 1-LINE PROFESSIONAL INPUT SYSTEM ---
+    st.write("🔽 **मीडिया अटैच करें और अपना सवाल पूछें:**")
     
+    # 3-Column layout to place buttons and inputs perfectly in one horizontal line
+    col1, col2, col3 = st.columns([1, 6, 1])
+    
+    with col1:
+        # Real upload button styled as a single "+" button
+        chat_media = st.file_uploader("➕", type=["jpg", "jpeg", "png", "mp4"], key="chat_media_uploader")
+        
+    with col2:
+        # Main text input field area
+        query = st.text_input("", key="search_input_mem", placeholder="Ask Orbix anything...", label_visibility="collapsed")
+        
+    with col3:
+        # Mic action placeholder button
+        mic_click = st.button("🎤", key="mic_btn", help="वॉयस टाइपिंग (जल्द आ रहा है)")
+        if mic_click:
+            st.toast("🎤 माइक फीचर अगली अपडेट में लाइव हो रहा है!")
+
+    # Show file added alert if user selected something
     if chat_media:
         st.markdown(f"<span class='uploadedFileName'>📎 फ़ाइल जोड़ी गई: {chat_media.name}</span>", unsafe_allow_html=True)
 
-    # 2. Direct Text Input
-    query = st.text_input("", key="search_input_mem", placeholder="यहाँ अपना सवाल लिखें...")
-
+    # Ask Button
     if st.button("पूछें 🚀", type="primary", key="send_btn"):
         if query or chat_media:
             with st.spinner("Orbix सोच रहा है..."):
@@ -158,7 +143,7 @@ with tab1:
         last_msg = st.session_state.chat_history[-1]["text"]
         if not last_msg.startswith("❌"):
             try:
-                tts = gTTS(text=last_msg.replace('*', ''), lang="hi" if language == "Hindi" else "en", slow=False)
+                tts = gTTS(text=last_msg.replace('*', ''), lang="hi", slow=False)
                 fp = io.BytesIO()
                 tts.write_to_fp(fp)
                 fp.seek(0)
@@ -179,14 +164,11 @@ with tab2:
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
                     output_lines = result.stdout.strip().split('\n')
                     if len(output_lines) >= 2:
-                        st.session_state.search_result = {"title": output_lines[0], "youtube_url": f"https://www.youtube.com/watch?v={output_lines[1]}"}
-                        st.rerun()
+                        # Storing perfectly into dynamic local variables to avoid state bugs
+                        st.write(f"🎯 वीडियो मिल गया: **{output_lines[0]}**")
+                        st.video(f"https://www.youtube.com/watch?v={output_lines[1]}")
                 except:
                     st.error("❌ खोजने में समस्या हुई।")
-
-    if st.session_state.search_result:
-        st.success(f"🎯 वीडियो मिल गया: **{st.session_state.search_result['title']}**")
-        st.video(st.session_state.search_result['youtube_url'])
 
 with tab3:
     st.subheader("📚 एडवांस ग्लोबल शिक्षा AI")
