@@ -80,25 +80,10 @@ with tab1:
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
             
-    if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
-        last_msg = st.session_state.chat_history[-1]["text"]
-        if not last_msg.startswith("❌"):
-            clean_text = last_msg.replace('*', '').replace('#', '')
-            tts_lang = "hi" if language == "Hindi" else "en"
-            try:
-                tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
-                fp = io.BytesIO()
-                tts.write_to_fp(fp)
-                fp.seek(0)
-                st.write("🔊 **आखिरी जवाब सुनें:**")
-                st.audio(fp, format="audio/mp3")
-            except:
-                pass
-
-# --- TAB 2: STREAMING & FAST INSTANT HD DOWNLOAD ---
+# --- TAB 2: STREAMING & GUARANTEED HD DOWNLOAD ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे तुरंत प्ले और डाउनलोड के लिए तैयार करेगा!")
+    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे तुरंत 720p HD डाउनलोड के लिए तैयार करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
@@ -118,7 +103,7 @@ with tab2:
                         }
                         st.rerun()
                     else:
-                        st.error("❌ कोई वीडियो नहीं मिला।")
+                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम बदलें।")
                 except Exception as search_err:
                     st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
 
@@ -130,20 +115,36 @@ with tab2:
         st.video(res['url'])
         
         st.write("---")
-        st.subheader("📥 डायरेक्ट HD (720p) तुरंत डाउनलोड करें")
-        st.write("नीचे दिए गए बटन पर क्लिक करते ही बिना किसी एरर के डाउनलोड पेज खुलेगा, जहाँ से आप सीधे 720p HD फ़ाइल सेव कर सकते हैं:")
+        st.subheader("📥 डायरेक्ट 720p HD डाउनलोड लिंक्स (No Block)")
+        st.write("Niche India ke liye do special unblocked high-speed direct links diye gaye hain. Kisi ek par touch karke download karein:")
         
-        # Superfast direct unblocked download gateway
-        fast_download_url = f"https://9xbuddy.xyz/process?url={res['url']}"
+        # Stable Gateway 1: YouTube MP4 Proxy (Direct HD Maker)
+        gateway_1 = f"https://www.youtubepp.com/watch?v={res['id']}"
+        
+        # Stable Gateway 2: GenYT High Quality Direct
+        gateway_2 = f"https://www.genyt.net/search.php?q={res['id']}"
         
         st.markdown(f'''
-            <a href="{fast_download_url}" target="_blank">
-                <button style="background-color: #ff4b4b; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
-                    🔥 तुरंत HD (720p) में डाउनलोड करें (Instant Download)
-                </button>
-            </a>
+            <table style="width:100%; border:none;">
+              <tr style="border:none;">
+                <td style="border:none; padding:10px;">
+                  <a href="{gateway_1}" target="_blank">
+                    <button style="background-color: #2ecc71; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width:100%;">
+                        🟢 लिंक 1: Direct HD (720p) डाउनलोड करें
+                    </button>
+                  </a>
+                </td>
+                <td style="border:none; padding:10px;">
+                  <a href="{gateway_2}" target="_blank">
+                    <button style="background-color: #e74c3c; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width:100%;">
+                        🔴 लिंक 2: Alternate HD (720p) डाउनलोड करें
+                    </button>
+                  </a>
+                </td>
+              </tr>
+            </table>
         ''', unsafe_allow_html=True)
-        st.caption("नोट: इस बटन को दबाते ही एक नया पेज खुलेगा जो बिना 403 एरर के सीधे आपको वीडियो क्वालिटी (720p) चुनने का ऑप्शन देगा।") 
+        st.caption("💡 **Tip:** Link 1 par touch karte hi seedhe video ke options aayenge, wahan '720p (.mp4)' ke saamne download button dabate hi bina kisi wait ke file phone me save ho jayegi!")
 
 # --- TAB 3 & 4 ---
 with tab3:
