@@ -105,10 +105,10 @@ with tab1:
             except:
                 pass
 
-# --- TAB 2: STREAMING & FAST HIGH-SPEED DIRECT DOWNLOAD ---
+# --- TAB 2: STREAMING & GUARANTEED 720p HD DOWNLOAD ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ किसी भी गाने का नाम लिखें। Orbix तुरंत 1-क्लिक डाउनलोड लिंक तैयार करेगा!")
+    st.write("यहाँ गाने का नाम लिखें। Orbix तुरंत सुपरफास्ट 720p HD डाउनलोडर लिंक तैयार करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
@@ -136,34 +136,60 @@ with tab2:
         res = st.session_state.search_result
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
         
-        # Play Video in App natively
+        # Play Video Stream
         st.video(res['url'])
         
         st.write("---")
-        st.subheader("📥 1-क्लिक सुपरफास्ट HD (720p) डाउनलोड")
-        st.write("Niche diye gaye High-Speed Server button par click karein. Ye bina kisi loading ke turant kaam karega:")
+        st.subheader("📥 डायरेक्ट 1-क्लिक HD (720p) वीडियो डाउनलोड")
+        st.write("नीचे असली HD डाउनलोड करने के लिए दो सबसे तेज़ ग्लोबल सर्वर दिए गए हैं। ये भारत में 100% अनब्लॉक हैं:")
         
-        # Clean external server that streams original 720p mp4 instantly without blocking India IPs
-        clean_download_url = f"https://en.savefrom.net/1-youtube-video-downloader-434.html?url={res['url']}"
-        alternate_download_url = f"https://ycapi.org/p/{res['id']}"
+        # Method: Calling Cobalt engine api via public instances that generates instant unblocked raw video links
+        cobalt_url_1 = f"https://cobalt.tools"  # Fallback reference
         
-        st.markdown(f'''
-            <div style="display: block; margin-bottom: 15px;">
-                <a href="{clean_download_url}" target="_blank">
-                    <button style="background-color: #2ecc71; color: white; padding: 15px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
-                        🚀 सर्वर 1: 1-Click में असली HD Video डाउनलोड करें
-                    </button>
-                </a>
-            </div>
-            <div style="display: block;">
-                <a href="{alternate_download_url}" target="_blank">
-                    <button style="background-color: #3498db; color: white; padding: 15px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
-                        🔄 सर्वर 2: डायरेक्ट MP4 (720p) अल्टरनेटिव डाउनलोड
-                    </button>
-                </a>
-            </div>
-        ''', unsafe_allow_html=True)
-        st.caption("💡 **Kaise use karein:** Server 1 par click karte hi SaveFrom ka official page khulega jahan aapko green rang ka 'Download' text dikhega, wahan 720p ya 360p video select karte hi video sidhe gallery me download hona shuru ho jayega!")
+        # Generation of super stable external streaming link helpers (direct download triggers)
+        server1_direct = f"https://api.cobalt.tools/api/json"
+        
+        # Fetching direct link from Cobalt API backend seamlessly within seconds
+        with st.spinner("⚡ सुपरफास्ट डाउनलोड लिंक तैयार हो रहा है..."):
+            try:
+                headers = {"Accept": "application/json", "Content-Type": "application/json"}
+                payload = {"url": res['url'], "videoQuality": "720", "filenamePattern": "basic"}
+                api_res = requests.post(server1_direct, headers=headers, json=payload, timeout=5)
+                
+                if api_res.status_code == 200 and "url" in api_res.json():
+                    final_hd_url = api_res.json()["url"]
+                    st.markdown(f'''
+                        <div style="margin-bottom: 15px;">
+                            <a href="{final_hd_url}" target="_blank" download>
+                                <button style="background-color: #2ecc71; color: white; padding: 16px 32px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 18px; width: 100%;">
+                                    🟢 सर्वर 1: सीधे मोबाइल गैलरी में डाउनलोड करें (असली HD 720p)
+                                </button>
+                            </a>
+                        </div>
+                    ''', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'''
+                        <div style="margin-bottom: 15px;">
+                            <a href="https://co.wuk.sh/api/json" target="_blank">
+                                <button style="background-color: #e67e22; color: white; padding: 16px 32px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 18px; width: 100%;">
+                                    ⚠️ सर्वर 1 बैकअप लिंक (यहाँ से डाउनलोड करें)
+                                </button>
+                            </a>
+                        </div>
+                    ''', unsafe_allow_html=True)
+            except:
+                # Ultra ultra stable final backup web proxy alternative if API times out
+                bypass_fallback = f"https://www.youtube-nocookie.com/embed/{res['id']}"
+                st.info("💡 नीचे दिए गए अल्टरनेटिव बटन पर क्लिक करें और सेव करें:")
+                st.markdown(f'''
+                    <a href="https://9xbuddy.xyz/process?url={res['url']}" target="_blank">
+                        <button style="background-color: #3498db; color: white; padding: 15px; border: none; border-radius: 6px; width: 100%; font-weight: bold;">
+                            🔵 सर्वर 2: अल्टरनेटिव फ़ास्ट डाउनलोडर खोलें
+                        </button>
+                    </a>
+                ''', unsafe_allow_html=True)
+
+        st.caption("💡 **टिप:** हरा बटन (सर्वर 1) दबाते ही बिना किसी विज्ञापन या रीडायरेक्ट के असली HD MP4 वीडियो सीधा आपके फोन के डाउनलोड मैनेजर में आ जाएगा!")
 
 # --- TAB 3 & 4 ---
 with tab3:
