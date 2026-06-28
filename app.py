@@ -63,7 +63,7 @@ with tab1:
 
     def get_ai_response_with_memory(user_query, key, history):
         if not key:
-            return "❌ API Key नहीं मिली। कृपया अपने Streamlit Advanced Settings में Secrets जोड़ें।"
+            return "❌ API Key नहीं मिली।"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         headers = {'Content-Type': 'application/json'}
         contents = []
@@ -89,28 +89,12 @@ with tab1:
                 st.session_state.chat_history.append({"role": "user", "text": query})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
-            
-    if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
-        last_msg = st.session_state.chat_history[-1]["text"]
-        if not last_msg.startswith("❌"):
-            clean_text = last_msg.replace('*', '').replace('#', '')
-            tts_lang = "hi" if language == "Hindi" else "en"
-            try:
-                tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
-                fp = io.BytesIO()
-                tts.write_to_fp(fp)
-                fp.seek(0)
-                st.write("🔊 **आखिरी जवाब सुनें:**")
-                st.audio(fp, format="audio/mp3")
-            except:
-                pass
 
 # --- TAB 2: CLEAN HIGH-SPEED STREAMING PLAYER ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन प्लेयर")
-    st.write("यहाँ किसी भी वीडियो या गाने का नाम लिखें। Orbix उसे तुरंत आपके लिए हाई-क्वालिटी में प्ले करेगा!")
     
-    video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
+    video_name = st.text_input("📝 वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
         if video_name:
@@ -134,16 +118,38 @@ with tab2:
     if st.session_state.search_result:
         res = st.session_state.search_result
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
-        
-        # Native Full HD Player Container inside Streamlit App
         st.video(res['youtube_url'])
-        st.caption("✨ वीडियो प्लेयर के अंदर गियर (⚙️) आइकॉन पर क्लिक करके यूजर अपनी मनपसंद क्वालिटी (720p/1080p) चुनकर ऑनलाइन देख सकते हैं।")
+        st.caption("✨ प्लेयर के अंदर गियर (⚙️) आइकॉन से क्वालिटी बदल सकते हैं।")
 
-# --- TAB 3 & 4 ---
+# --- TAB 4: AGRICULTURE & MEDIA UPLOADER (+) ---
+with tab4:
+    st.subheader("🌾 कृषि टूल (Orbix Vision AI)")
+    st.write("यहाँ यूजर फोटो या वीडियो अपलोड करके अपनी फसलों की बीमारी तुरंत पहचान सकते हैं!")
+    
+    # Advanced Dynamic Media Upload System (+)
+    uploaded_file = st.file_uploader(
+        "➕ फ़ाइल जोड़ें (फोटो या वीडियो अपलोड करें)", 
+        type=["jpg", "jpeg", "png", "mp4", "mov", "avi"],
+        help="गैलरी या कैमरे से सीधे फोटो/वीडियो अटैच करने के लिए यहाँ क्लिक करें"
+    )
+    
+    if uploaded_file is not None:
+        file_details = {"FileName": uploaded_file.name, "FileType": uploaded_file.type, "FileSize": uploaded_file.size}
+        
+        # Checking if it's an image or a video
+        if "image" in uploaded_file.type:
+            st.image(uploaded_file, caption="📸 अपलोडेड फोटो", use_column_width=True)
+            st.success("✅ फोटो सफलतापूर्वक अटैच हो गई है!")
+            
+            if st.button("🤖 एआई से बीमारी की जांच करें", type="primary"):
+                with st.spinner("Orbix Vision AI फोटो स्कैन कर रहा है..."):
+                    # Future Extension: Pass bytes to Gemini Vision API
+                    st.info("🎯 फसल बिल्कुल स्वस्थ लग रही है! (यह एक डेमो एनालिसिस है, लाइव विज़न मॉडल जल्द आ रहा है)")
+                    
+        elif "video" in uploaded_file.type:
+            st.video(uploaded_file)
+            st.success("✅ वीडियो सफलतापूर्वक अटैच हो गया है!")
+
 with tab3:
     st.subheader("📚 एडवांस ग्लोबल शिक्षा AI")
     st.info("शिक्षा और थ्योरम सॉल्विंग टूल जल्द आ रहा है।")
-
-with tab4:
-    st.subheader("🌾 कृषि टूल (Agriculture AI)")
-    st.info("फसल की बीमारी पहचानने का टूल जल्द आ रहा है।")
