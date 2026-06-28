@@ -9,7 +9,7 @@ import json
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (ग्लोबल एडिशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट")
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -40,7 +40,7 @@ if st.sidebar.button("🧹 चैट इतिहास साफ़ करे�
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "🔍 Orbix Chat (AI दिमाग)", 
-    "🎬 मनोरंजन (ग्लोबल HD 1-Click Download)", 
+    "🎬 मनोरंजन (Smart Streaming)", 
     "📚 शिक्षा (1st to M.Sc)", 
     "🌾 कृषि टूल (Agriculture AI)"
 ])
@@ -89,51 +89,45 @@ with tab1:
                 st.session_state.chat_history.append({"role": "user", "text": query})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 st.rerun()
+            
+    if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
+        last_msg = st.session_state.chat_history[-1]["text"]
+        if not last_msg.startswith("❌"):
+            clean_text = last_msg.replace('*', '').replace('#', '')
+            tts_lang = "hi" if language == "Hindi" else "en"
+            try:
+                tts = gTTS(text=clean_text, lang=tts_lang, slow=False)
+                fp = io.BytesIO()
+                tts.write_to_fp(fp)
+                fp.seek(0)
+                st.write("🔊 **आखिरी जवाब सुनें:**")
+                st.audio(fp, format="audio/mp3")
+            except:
+                pass
 
-# --- TAB 2: STREAMING & UNIVERSAL 1-CLICK HD DOWNLOADER ---
+# --- TAB 2: CLEAN HIGH-SPEED STREAMING PLAYER ---
 with tab2:
-    st.subheader("🎬 Orbix ग्लोबल मनोरंजन प्लेयर")
-    st.write("दुनिया के किसी भी डिवाइस में बिना किसी विज्ञापन या बाहरी वेबसाइट के सीधे 720p HD वीडियो डाउनलोड करें!")
+    st.subheader("🎬 Orbix स्मार्ट मनोरंजन प्लेयर")
+    st.write("यहाँ किसी भी वीडियो या गाने का नाम लिखें। Orbix उसे तुरंत आपके लिए हाई-क्वालिटी में प्ले करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
         if video_name:
-            with st.spinner("Orbix वीडियो और HD लिंक्स ढूंढ रहा है..."):
+            with st.spinner("Orbix वीडियो ढूंढ रहा है..."):
                 try:
-                    # Fetch video metadata natively via yt-dlp json dump
-                    command = f'yt-dlp "ytsearch1:{video_name}" --dump-json'
+                    command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    output_lines = result.stdout.strip().split('\n')
                     
-                    if result.stdout:
-                        video_data = json.loads(result.stdout)
-                        video_id = video_data.get('id', '')
-                        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-                        
-                        # Extract the best combined/progressive format url natively from youtube servers
-                        # First try to find format 22 (Native 720p HD containing both audio and video)
-                        hd_direct_stream_url = None
-                        for fmt in video_data.get('formats', []):
-                            if fmt.get('format_id') == '22' and fmt.get('url'):
-                                hd_direct_stream_url = fmt['url']
-                                break
-                        
-                        # If format 22 is missing, grab the highest available progressive format automatically
-                        if not hd_direct_stream_url:
-                            for fmt in video_data.get('formats', []):
-                                if fmt.get('vcodec') != 'none' and fmt.get('acodec') != 'none' and fmt.get('url'):
-                                    hd_direct_stream_url = fmt['url']
-                                    if fmt.get('height', 0) >= 480:
-                                        break
-                        
+                    if len(output_lines) >= 2:
                         st.session_state.search_result = {
-                            "title": video_data.get('title', 'Video'),
-                            "youtube_url": youtube_url,
-                            "download_url": hd_direct_stream_url or video_data.get('url')
+                            "title": output_lines[0],
+                            "youtube_url": f"https://www.youtube.com/watch?v={output_lines[1]}"
                         }
                         st.rerun()
                     else:
-                        st.error("❌ कोई वीडियो नहीं मिला।")
+                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम बदलें।")
                 except Exception as search_err:
                     st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
 
@@ -141,28 +135,9 @@ with tab2:
         res = st.session_state.search_result
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
         
-        # Native Video Playback inside Orbix App
+        # Native Full HD Player Container inside Streamlit App
         st.video(res['youtube_url'])
-        
-        st.write("---")
-        st.subheader("📥 1-क्लिक डायरेक्ट यूनिवर्सल डाउनलोड")
-        st.write("नीचे दिए गए लाल बटन पर क्लिक करें। कोई बाहरी विज्ञापन पेज नहीं खुलेगा, आपके क्रोम ब्राउज़र में सीधा डाउनलोड शुरू होगा:")
-        
-        if res['download_url']:
-            # Universal Pure HTML Anchor trigger with download attribute
-            # This bypasses all website blockades in India completely
-            st.markdown(f'''
-                <div style="margin-top: 10px;">
-                    <a href="{res['download_url']}" target="_blank" download="{res['title']}.mp4">
-                        <button style="background-color: #ff4b4b; color: white; padding: 16px 32px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 18px; width: 100%;">
-                            🔥 1-Click में सीधे गैलरी में डाउनलोड करें
-                        </button>
-                    </a>
-                </div>
-            ''', unsafe_allow_html=True)
-            st.caption("✨ **महत्वपूर्ण टिप:** बटन दबाते ही आपके ब्राउज़र में वीडियो प्लेयर पेज खुलेगा। वीडियो शुरू होते ही नीचे कोने में बने **3 डॉट्स (⋮)** पर टच करें और **Download** दबा दें। वीडियो सीधा गैलरी में आ जाएगा!")
-        else:
-            st.error("❌ डाउनलोड लिंक जनरेट नहीं हो सका।")
+        st.caption("✨ वीडियो प्लेयर के अंदर गियर (⚙️) आइकॉन पर क्लिक करके यूजर अपनी मनपसंद क्वालिटी (720p/1080p) चुनकर ऑनलाइन देख सकते हैं।")
 
 # --- TAB 3 & 4 ---
 with tab3:
