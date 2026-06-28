@@ -4,7 +4,7 @@ import os
 from gtts import gTTS
 import io
 import subprocess
-import re
+import json
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
@@ -93,66 +93,58 @@ with tab1:
             except:
                 pass
 
-# --- TAB 2: STREAMING & DOWNLOAD (STABLE LINKS) ---
+# --- TAB 2: STREAMING & DIRECT DOWNLOAD (NO BLOCKED SITES) ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ किसी भी गाने, फिल्म या वीडियो का **नाम** लिखें। Orbix उसे खुद ढूंढकर लाएगा!")
+    st.write("यहाँ किसी भी गाने या वीडियो का नाम लिखें। Orbix उसे सीधे डाउनलोड के लिए तैयार करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary"):
         if video_name:
-            with st.spinner("Orbix इंटरनेट पर वीडियो ढूंढ रहा है..."):
+            with st.spinner("Orbix इंटरनेट से डायरेक्ट डाउनलोड लिंक निकाल रहा है..."):
                 try:
-                    command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
+                    # Fetching direct video streaming URL using yt-dlp json dump
+                    command = f'yt-dlp "ytsearch1:{video_name}" --dump-json'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                    output_lines = result.stdout.strip().split('\n')
                     
-                    if len(output_lines) >= 2:
-                        video_title = output_lines[0]
-                        video_id = output_lines[1]
+                    if result.stdout:
+                        video_data = json.loads(result.stdout)
+                        video_title = video_data.get('title', 'Video')
+                        video_id = video_data.get('id', '')
                         actual_url = f"https://www.youtube.com/watch?v={video_id}"
                         
                         st.success(f"🎯 वीडियो मिल गया: **{video_title}**")
                         
-                        # Play Video
+                        # Play Video in App
                         st.video(actual_url)
                         
                         st.write("---")
-                        st.subheader("📥 वीडियो डाउनलोड ऑप्शन्स")
-                        st.write("India ke blocked servers ko bypass karne ke liye niche do alag download servers diye gaye hain:")
+                        st.subheader("📥 डायरेक्ट वीडियो डाउनलोड लिंक")
+                        st.write("नीचे दिए गए बटन पर क्लिक करते ही वीडियो का डायरेक्ट सोर्स ओपन होगा। वहाँ 3 डॉट्स पर क्लिक करके Download दबाएं:")
                         
-                        # Server 1: SaveFrom Global Server
-                        savefrom_link = f"https://en.savefrom.net/#url={actual_url}"
+                        # Loop to find a format containing both video and audio for mobile download
+                        direct_download_url = None
+                        for fmt in video_data.get('formats', []):
+                            if fmt.get('vcodec') != 'none' and fmt.get('acodec') != 'none' and fmt.get('url'):
+                                direct_download_url = fmt['url']
+                                break
                         
-                        # Server 2: Alternate Fast Tool
-                        alt_link = f"https://9xbuddy.xyz/process?url={actual_url}"
+                        if not direct_download_url:
+                            direct_download_url = video_data.get('url') # fallback
                         
-                        # UI Columns equivalent using simple HTML tables for alignment
-                        st.markdown(f'''
-                            <table style="width:100%; border:none;">
-                              <tr style="border:none;">
-                                <td style="border:none; padding:10px;">
-                                  <a href="{savefrom_link}" target="_blank">
-                                    <button style="background-color: #2ecc71; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 15px; width:100%;">
-                                        🟢 सर्वर 1: SaveFrom से डाउनलोड करें
+                        if direct_download_url:
+                            st.markdown(f'''
+                                <a href="{direct_download_url}" target="_blank">
+                                    <button style="background-color: #ff4b4b; color: white; padding: 14px 28px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
+                                        🔥 सीधे अपने फोन में डाउनलोड करें (Direct Download Video)
                                     </button>
-                                  </a>
-                                </td>
-                                <td style="border:none; padding:10px;">
-                                  <a href="{alt_link}" target="_blank">
-                                    <button style="background-color: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 15px; width:100%;">
-                                        🔵 सर्वर 2: Alternate 9XBuddy से डाउनलोड करें
-                                    </button>
-                                  </a>
-                                </td>
-                              </tr>
-                            </table>
-                        ''', unsafe_allow_html=True)
-                        
-                        st.caption("💡 **Tip:** Button par click karte hi ek naya page khulega. Wahan apna video format (720p ya mp3) choose karke download start kar sakte hain.")
+                                </a>
+                            ''', unsafe_allow_html=True)
+                        else:
+                            st.error("❌ डायरेक्ट डाउनलोड लिंक जनरेट नहीं हो सका।")
                     else:
-                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम थोड़ा बदलकर लिखें।")
+                        st.error("❌ कोई वीडियो नहीं मिला। कृपया नाम बदलें।")
                 except Exception as search_err:
                     st.error(f"❌ खोजने में समस्या हुई: {str(search_err)}")
         else:
