@@ -12,7 +12,6 @@ st.title("🚀 ORBIX AI")
 st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट")
 
 # --- SECURE AUTOMATIC API KEY SYSTEM ---
-# Streamlit Secrets या environment variables से की (Key) उठाएगा
 if "GEMINI_API_KEY" in st.secrets:
     DEFAULT_API_KEY = st.secrets["GEMINI_API_KEY"]
 elif os.environ.get("GEMINI_API_KEY"):
@@ -106,16 +105,16 @@ with tab1:
             except:
                 pass
 
-# --- TAB 2: STREAMING & TRUE HD (720p) VIDEO DOWNLOAD ---
+# --- TAB 2: STREAMING & FAST HIGH-SPEED DIRECT DOWNLOAD ---
 with tab2:
     st.subheader("🎬 Orbix स्मार्ट मनोरंजन सर्च")
-    st.write("यहाँ गाने का नाम लिखें। Orbix सीधे असली HD 720p वीडियो फ़ाइल तैयार करेगा!")
+    st.write("यहाँ किसी भी गाने का नाम लिखें। Orbix तुरंत 1-क्लिक डाउनलोड लिंक तैयार करेगा!")
     
     video_name = st.text_input("वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
     
     if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
         if video_name:
-            with st.spinner("Orbix इंटरनेट पर वीडियो ढूंढ रहा है..."):
+            with st.spinner("Orbix वीडियो ढूंढ रहा है..."):
                 try:
                     command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                     result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -137,39 +136,34 @@ with tab2:
         res = st.session_state.search_result
         st.success(f"🎯 वीडियो मिल गया: **{res['title']}**")
         
-        # Play Video Stream
+        # Play Video in App natively
         st.video(res['url'])
         
         st.write("---")
-        st.subheader("📥 1-क्लिक डायरेक्ट HD 720p वीडियो डाउनलोड")
+        st.subheader("📥 1-क्लिक सुपरफास्ट HD (720p) डाउनलोड")
+        st.write("Niche diye gaye High-Speed Server button par click karein. Ye bina kisi loading ke turant kaam karega:")
         
-        # Define cloud server path
-        local_video_path = f"/tmp/{res['id']}.mp4"
+        # Clean external server that streams original 720p mp4 instantly without blocking India IPs
+        clean_download_url = f"https://en.savefrom.net/1-youtube-video-downloader-434.html?url={res['url']}"
+        alternate_download_url = f"https://ycapi.org/p/{res['id']}"
         
-        # If video is not processed yet on cloud backend
-        if not os.path.exists(local_video_path):
-            st.info("🔄 इस वीडियो को असली HD 720p वीडियो फ़ॉर्मेट में डाउनलोड करने के लिए नीचे बटन दबाएं:")
-            if st.button("🎬 HD 720p वीडियो फ़ाइल तैयार करें", type="secondary"):
-                with st.spinner("Orbix क्लाउड सर्वर पर असली वीडियो डाउनलोड और मर्ज कर रहा है... इसमें 15-20 सेकंड लग सकते हैं।"):
-                    # This forces yt-dlp to download and stitch real 720p video + audio together into a pure MP4 file
-                    build_cmd = f'yt-dlp -f "bestvideo[height<=720]+bestaudio/best[height<=720]" --merge-output-format mp4 -o "{local_video_path}" "{res["url"]}"'
-                    subprocess.run(build_cmd, shell=True)
-                st.rerun()
-        else:
-            # When ready, open the file binary stream natively to trigger proper browser download manager
-            st.success("✨ असली HD 720p वीडियो डाउनलोड के लिए बिल्कुल तैयार है!")
-            try:
-                with open(local_video_path, "rb") as f:
-                    st.download_button(
-                        label="🔥 सीधे गैलरी में असली वीडियो सेव करें (Save HD Video)",
-                        data=f,
-                        file_name=f"{res['title']}.mp4",
-                        mime="video/mp4",
-                        type="primary"
-                    )
-                st.caption("नोट: इस बटन को दबाते ही असली HD वीडियो सीधे आपके मोबाइल स्टोरेज में आ जाएगा।")
-            except Exception as io_err:
-                st.error(" can't load file.")
+        st.markdown(f'''
+            <div style="display: block; margin-bottom: 15px;">
+                <a href="{clean_download_url}" target="_blank">
+                    <button style="background-color: #2ecc71; color: white; padding: 15px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
+                        🚀 सर्वर 1: 1-Click में असली HD Video डाउनलोड करें
+                    </button>
+                </a>
+            </div>
+            <div style="display: block;">
+                <a href="{alternate_download_url}" target="_blank">
+                    <button style="background-color: #3498db; color: white; padding: 15px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%;">
+                        🔄 सर्वर 2: डायरेक्ट MP4 (720p) अल्टरनेटिव डाउनलोड
+                    </button>
+                </a>
+            </div>
+        ''', unsafe_allow_html=True)
+        st.caption("💡 **Kaise use karein:** Server 1 par click karte hi SaveFrom ka official page khulega jahan aapko green rang ka 'Download' text dikhega, wahan 720p ya 360p video select karte hi video sidhe gallery me download hona shuru ho jayega!")
 
 # --- TAB 3 & 4 ---
 with tab3:
