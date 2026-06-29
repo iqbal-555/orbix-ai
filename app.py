@@ -37,8 +37,6 @@ if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "recent_chats_list" not in st.session_state:
-    st.session_state.recent_chats_list = {}
 
 # --- SIDEBAR CONTROL PANEL (GEMINI LOOK) ---
 st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
@@ -46,7 +44,7 @@ st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
 if st.session_state.logged_in:
     st.sidebar.success(f"👤 {st.session_state.user_email}")
     
-    # 📝 NEW CHAT BUTTON (JUST LIKE IMAGE)
+    # 📝 NEW CHAT BUTTON
     if st.sidebar.button("📝 New chat", use_container_width=True):
         st.session_state.current_chat_id = str(uuid.uuid4())
         st.session_state.chat_history = []
@@ -56,36 +54,35 @@ if st.session_state.logged_in:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🕒 Recent Chats")
     
-    # Load unique chat sessions from Supabase for this user
+    # Dynamic Session Loading Fix
+    sessions = {}
     if supabase:
         try:
-            # Fetching unique sessions sorted by latest updates
-            db_res = supabase.table("chats").select("chat_id, user_msg").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
+            db_res = supabase.table("chats").select("chat_id, user_msg, id").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
             
-            # Map first message of each unique chat_id as its title
-            sessions = {}
             for row in db_res.data:
-                c_id = row.get("chat_id")
+                # Fallback to row ID if chat_id missing to ensure visibility
+                c_id = row.get("chat_id") or f"old_session_{row.get('id')}"
                 msg = row.get("user_msg", "Purani Chat")
-                if c_id and c_id not in sessions:
-                    # Clean title if it's a media attachment
+                if c_id not in sessions:
                     title = msg if not msg.startswith("📎") else msg.split("] ", 1)[-1]
-                    sessions[c_id] = title[:28] + "..." if len(title) > 28 else title
-            
-            st.session_state.recent_chats_list = sessions
+                    sessions[c_id] = title[:24] + "..." if len(title) > 24 else title
         except:
             pass
 
-    # Render Recent Chat Buttons dynamically in the sidebar
-    if st.session_state.recent_chats_list:
-        for s_id, s_title in st.session_state.recent_chats_list.items():
-            # Highlight current active chat
+    # Render Recent Chat Buttons dynamically
+    if sessions:
+        for s_id, s_title in sessions.items():
             is_active = "🎯 " if s_id == st.session_state.current_chat_id else "💬 "
             if st.sidebar.button(f"{is_active}{s_title}", key=f"session_{s_id}", use_container_width=True):
                 st.session_state.current_chat_id = s_id
-                # Fetch messages for selected session
                 try:
-                    history_res = supabase.table("chats").select("*").eq("chat_id", s_id).order("created_at", ascending=True).execute()
+                    if s_id.startswith("old_session_"):
+                        row_id = s_id.split("_")[-1]
+                        history_res = supabase.table("chats").select("*").eq("id", row_id).execute()
+                    else:
+                        history_res = supabase.table("chats").select("*").eq("chat_id", s_id).order("created_at", ascending=True).execute()
+                    
                     st.session_state.chat_history = []
                     for row in history_res.data:
                         st.session_state.chat_history.append({"role": "user", "text": row["user_msg"]})
@@ -118,7 +115,7 @@ if not st.session_state.logged_in and not is_recovery:
 
 # --- APP INTERFACE ROUTING ---
 if is_recovery:
-    st.subheader("🔒 नया पासवर्ड सेट करें (Reset Password)")
+    st.subheader("🔒 नया密码 सेट करें (Reset Password)")
     new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password")
     confirm_new_password = st.text_input("पासवर्ड दोबारा डालें", type="password")
     
@@ -184,7 +181,6 @@ else:
             </style>
         """, unsafe_allow_html=True)
 
-        # Render current conversation
         for chat in st.session_state.chat_history:
             if chat["role"] == "user":
                 st.markdown(f'<div class="user-msg">🧑 <b>आप:</b> {chat["text"]}</div>', unsafe_allow_html=True)
@@ -213,7 +209,6 @@ else:
                 st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 
-                # Auto-save inside specific chat session id
                 if supabase:
                     try:
                         supabase.table("chats").insert({
@@ -226,7 +221,6 @@ else:
                         pass
                 st.rerun()
 
-        # Audio Output for Latest message
         if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
             last_msg = st.session_state.chat_history[-1]["text"]
             if not last_msg.startswith("❌"):
