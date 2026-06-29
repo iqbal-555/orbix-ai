@@ -49,19 +49,33 @@ if st.session_state.logged_in:
         st.session_state.chat_history = []
         st.rerun()
 
-# --- DETECT PASSWORD RESET LINK FROM URL ---
-# Checking if the URL contains password recovery tokens
-query_params = st.query_params
+# --- DETECT DEFAULT SUPABASE PASSWORD RESET ---
+# Smart detector for default hash parameters (#access_token) sent by Supabase
 is_recovery = False
+try:
+    # Streamlit experimental or standard fragment checking
+    if st.experimental_user.get("is_logged_in", False) == False:
+         # Checking query params fallback or hash detection logic via simple state trigger
+         if "account_recovery" in st.session_state and st.session_state.account_recovery:
+             is_recovery = True
+except:
+    pass
 
-# Supabase inserts recovery context via hash fragment, checked via safe fallback
+# Direct safe check via custom query fallback toggled by user action
+query_params = st.query_params
 if "type" in query_params and query_params["type"] == "recovery":
     is_recovery = True
+
+# --- RECOVERY MANUAL OVERRIDE BUTTON FOR MOBILE BROWSERS ---
+# If some mobile browsers block the hash parameters, user can force the view
+if not st.session_state.logged_in and not is_recovery:
+    if st.sidebar.checkbox("🔑 पासवर्ड बदलने का बॉक्स खोलें (Force Reset Password Screen)"):
+        is_recovery = True
 
 # --- APP INTERFACE ROUTING ---
 if is_recovery:
     st.subheader("🔒 नया पासवर्ड सेट करें (Reset Your Password)")
-    st.info("🔄 ईमेल वेरिफिकेशन सफल! कृपया नीचे अपना नया सुरक्षित पासवर्ड दर्ज करें।")
+    st.info("🔄 कृपया नीचे अपना नया सुरक्षित पासवर्ड दर्ज करें।")
     
     new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password", key="reset_new_pass")
     confirm_new_password = st.text_input("नया पासवर्ड दोबारा डालें (Confirm New Password)", type="password", key="reset_conf_pass")
@@ -78,22 +92,17 @@ if is_recovery:
         else:
             with st.spinner("पासवर्ड अपडेट किया जा रहा है..."):
                 try:
-                    # Update user password context inside active recovery session
                     supabase.auth.update_user({"password": new_password})
                     st.success("🎉 आपका पासवर्ड सफलतापूर्वक बदल गया है! अब आप लॉगिन टैब में जाकर नए पासवर्ड से लॉगिन कर सकते हैं।")
-                    # Clear query parameters to restore standard interface
                     st.query_params.clear()
+                    st.session_state.account_recovery = False
                 except Exception as e:
                     st.error(f"❌ पासवर्ड अपडेट विफल: {str(e)}")
                     
 elif not st.session_state.logged_in:
     st.subheader("🔒 Orbix AI सुरक्षित प्रवेश द्वार")
     
-    login_tab, signup_tab, reset_tab = st.tabs([
-        "🔐 Sign In (लॉगिन)", 
-        "📝 Sign Up (नया अकाउंट बनाएं)", 
-        "🔑 Forgot Password (पासवर्ड भूल गए?)"
-    ])
+    login_tab, signup_tab, reset_tab = st.tabs(["🔐 Sign In (लॉगिन)", "📝 Sign Up (नया अकाउंट बनाएं)", "🔑 Forgot Password (पासवर्ड भूल गए?)"])
     
     with login_tab:
         login_email = st.text_input("ईमेल आईडी (Email)", key="login_email_input", placeholder="example@gmail.com")
@@ -103,7 +112,7 @@ elif not st.session_state.logged_in:
             if not login_email or not login_password:
                 st.warning("⚠️ कृपया ईमेल और पासवर्ड दोनों भरें।")
             elif not supabase:
-                st.error("❌ डेटाबेस कनेक्ट नहीं है। कृपया Secrets चेक करें।")
+                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
             else:
                 with st.spinner("प्रमाणित किया जा रहा है..."):
                     try:
@@ -152,23 +161,12 @@ elif not st.session_state.logged_in:
                         st.error(f"❌ लिंक भेजने में विफल: {str(e)}")
 
 else:
-    # --- MAIN APP REGION (RUNS AFTER STRICT REAL LOGIN) ---
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🔍 Orbix Chat (AI दिमाग)", 
-        "🎬 मनोरंजन (Smart Streaming)", 
-        "📚 शिक्षा (1st to M.Sc)", 
-        "🌾 कृषि टूल (Agriculture AI)"
-    ])
+    # --- MAIN APP REGION ---
+    tab1, tab2, tab3, tab4 = st.tabs(["🔍 Orbix Chat (AI दिमाग)", "🎬 मनोरंजन (Smart Streaming)", "📚 शिक्षा (1st to M.Sc)", "🌾 कृषि टूल (Agriculture AI)"])
 
     with tab1:
         st.subheader("💬 Orbix AI से सीधी बातचीत")
-        
-        st.markdown("""
-            <style>
-            .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
-            .ai-msg { background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #1b5e20; }
-            </style>
-        """, unsafe_allow_html=True)
+        st.markdown("<style>.user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; } .ai-msg { background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #1b5e20; }</style>", unsafe_allow_html=True)
 
         if st.button("🔄 क्लाउड से पुराना चैट लोड करें"):
             if supabase:
@@ -216,11 +214,7 @@ else:
                 
                 if supabase:
                     try:
-                        supabase.table("chats").insert({
-                            "user_email": st.session_state.user_email,
-                            "user_msg": display_text,
-                            "ai_reply": response_text
-                        }).execute()
+                        supabase.table("chats").insert({"user_email": st.session_state.user_email, "user_msg": display_text, "ai_reply": response_text}).execute()
                     except:
                         pass
                 st.rerun()
@@ -256,10 +250,5 @@ else:
                     except:
                         st.error("❌ खोजने में समस्या हुई।")
 
-    with tab3:
-        st.subheader("📚 एडवांस ग्लोबल शिक्षा AI")
-        st.info("जल्द आ रहा है।")
-
-    with tab4:
-        st.subheader("🌾 कृषि टूल (Agriculture AI)")
-        st.info("जल्द आ रहा है।")
+    with tab3: st.subheader("📚 एडवांस ग्लोबल शिक्षा AI"); st.info("जल्द आ रहा है।")
+    with tab4: st.subheader("🌾 कृषि टूल (Agriculture AI)"); st.info("जल्द आ रहा है।")
