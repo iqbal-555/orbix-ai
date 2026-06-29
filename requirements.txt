@@ -2,4 +2,5 @@
 requests
 gTTS
 yt-dlp
-supabase==2.4.0
+supabase==2.3.0
+httpx==0.26.0
