@@ -25,7 +25,6 @@ SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
-        # Initializing without extra environment dependencies to avoid library clashes
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as init_err:
         st.error(f"❌ डेटाबेस कनेक्शन एरर: {str(init_err)}")
@@ -54,7 +53,12 @@ if st.session_state.logged_in:
 if not st.session_state.logged_in:
     st.subheader("🔒 Orbix AI सुरक्षित प्रवेश द्वार")
     
-    login_tab, signup_tab = st.tabs(["🔐 Sign In (लॉगिन)", "📝 Sign Up (नया अकाउंट बनाएं)"])
+    # ADDED THIRD TAB FOR PASSWORD RESET
+    login_tab, signup_tab, reset_tab = st.tabs([
+        "🔐 Sign In (लॉगिन)", 
+        "📝 Sign Up (नया अकाउंट बनाएं)", 
+        "🔑 Forgot Password (पासवर्ड भूल गए?)"
+    ])
     
     with login_tab:
         login_email = st.text_input("ईमेल आईडी (Email)", key="login_email_input", placeholder="example@gmail.com")
@@ -82,7 +86,7 @@ if not st.session_state.logged_in:
         
         if st.button("अकाउंट बनाएं (Create Account) ✨"):
             if not reg_email or not reg_password:
-                st.warning("⚠️ कृपया ईमेल और पासवर्ड भरें।")
+                st.warning("⚠️ कृपया ईमेल और密码 भरें।")
             elif len(reg_password) < 6:
                 st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
             elif not supabase:
@@ -95,8 +99,28 @@ if not st.session_state.logged_in:
                     except Exception as e:
                         st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
 
+    # NEW PASSWORD RESET TAB BACKEND LOGIC
+    with reset_tab:
+        st.write("🔄 अपना रजिस्टर्ड ईमेल डालें, हम आपके ईमेल पर पासवर्ड रीसेट करने का लिंक भेजेंगे।")
+        reset_email = st.text_input("रजिस्टर्ड ईमेल आईडी (Email)", key="reset_email_input", placeholder="your_email@gmail.com")
+        
+        if st.button("रीसेट लिंक भेजें (Send Reset Link) ✉️"):
+            if not reset_email:
+                st.warning("⚠️ कृपया अपना ईमेल आईडी दर्ज करें।")
+            elif not supabase:
+                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
+            else:
+                with st.spinner("लिंक भेजा जा रहा है..."):
+                    try:
+                        # Supabase Password Reset Trigger
+                        # users will receive an email with a secure link to reset their credentials
+                        supabase.auth.reset_password_for_email(reset_email)
+                        st.success("🎯 रीसेट लिंक आपके ईमेल पर सफलतापूर्वक भेज दिया गया है! कृपया अपना इनबॉक्स या स्पैम फ़ोल्डर चेक करें।")
+                    except Exception as e:
+                        st.error(f"❌ लिंक भेजने में विफल: {str(e)}")
+
 else:
-    # --- MAIN APP REGION ---
+    # --- MAIN APP REGION (RUNS AFTER STRICT REAL LOGIN) ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "🔍 Orbix Chat (AI दिमाग)", 
         "🎬 मनोरंजन (Smart Streaming)", 
