@@ -10,7 +10,7 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (एडवांस चैट सेशन एडिशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (परफेक्ट चैट सेशन)")
 
 # --- SECURE DATABASE & API CONFIGURATION ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -37,6 +37,29 @@ if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(uuid.uuid4())
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "recent_sessions" not in st.session_state:
+    st.session_state.recent_sessions = {}
+
+# --- FUNCTION TO LOAD RECENT CHAT LIST FROM SUPABASE ---
+def load_recent_chats():
+    if supabase and st.session_state.user_email:
+        try:
+            db_res = supabase.table("chats").select("chat_id, user_msg, created_at").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
+            sessions = {}
+            for row in db_res.data:
+                c_id = row.get("chat_id")
+                msg = row.get("user_msg", "Purani Chat")
+                
+                # Agar puraani rows me chat_id NULL hai, toh use unique handle denge
+                if not c_id:
+                    c_id = "legacy_chat"
+                    
+                if c_id not in sessions:
+                    title = msg if not msg.startswith("📎") else msg.split("] ", 1)[-1]
+                    sessions[c_id] = title[:24] + "..." if len(title) > 24 else title
+            st.session_state.recent_sessions = sessions
+        except:
+            pass
 
 # --- SIDEBAR CONTROL PANEL (GEMINI LOOK) ---
 st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
@@ -49,37 +72,31 @@ if st.session_state.logged_in:
         st.session_state.current_chat_id = str(uuid.uuid4())
         st.session_state.chat_history = []
         st.toast("✨ नया चैट सेशन शुरू हुआ!")
+        st.invalidate_pages() # Streamlit cache clear support
         st.rerun()
         
     st.sidebar.markdown("---")
+    
+    # SYNC BUTTON TO FORCE REFRESH LIST
+    if st.sidebar.button("🔄 Refresh Recent List", use_container_width=True):
+        load_recent_chats()
+        st.toast("⚡ लिस्ट अपडेट हो गई!")
+
     st.sidebar.subheader("🕒 Recent Chats")
     
-    # Dynamic Session Loading Fix
-    sessions = {}
-    if supabase:
-        try:
-            db_res = supabase.table("chats").select("chat_id, user_msg, id").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
-            
-            for row in db_res.data:
-                # Fallback to row ID if chat_id missing to ensure visibility
-                c_id = row.get("chat_id") or f"old_session_{row.get('id')}"
-                msg = row.get("user_msg", "Purani Chat")
-                if c_id not in sessions:
-                    title = msg if not msg.startswith("📎") else msg.split("] ", 1)[-1]
-                    sessions[c_id] = title[:24] + "..." if len(title) > 24 else title
-        except:
-            pass
+    # Auto load if empty
+    if not st.session_state.recent_sessions:
+        load_recent_chats()
 
     # Render Recent Chat Buttons dynamically
-    if sessions:
-        for s_id, s_title in sessions.items():
+    if st.session_state.recent_sessions:
+        for s_id, s_title in st.session_state.recent_sessions.items():
             is_active = "🎯 " if s_id == st.session_state.current_chat_id else "💬 "
             if st.sidebar.button(f"{is_active}{s_title}", key=f"session_{s_id}", use_container_width=True):
                 st.session_state.current_chat_id = s_id
                 try:
-                    if s_id.startswith("old_session_"):
-                        row_id = s_id.split("_")[-1]
-                        history_res = supabase.table("chats").select("*").eq("id", row_id).execute()
+                    if s_id == "legacy_chat":
+                        history_res = supabase.table("chats").select("*").eq("user_email", st.session_state.user_email).is_("chat_id", "null").order("created_at", ascending=True).execute()
                     else:
                         history_res = supabase.table("chats").select("*").eq("chat_id", s_id).order("created_at", ascending=True).execute()
                     
@@ -100,6 +117,7 @@ if st.session_state.logged_in:
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.session_state.chat_history = []
+        st.session_state.recent_sessions = {}
         st.session_state.current_chat_id = str(uuid.uuid4())
         st.rerun()
 
@@ -115,7 +133,7 @@ if not st.session_state.logged_in and not is_recovery:
 
 # --- APP INTERFACE ROUTING ---
 if is_recovery:
-    st.subheader("🔒 नया密码 सेट करें (Reset Password)")
+    st.subheader("🔒 नया पासवर्ड सेट करें (Reset Password)")
     new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password")
     confirm_new_password = st.text_input("पासवर्ड दोबारा डालें", type="password")
     
@@ -144,6 +162,7 @@ elif not st.session_state.logged_in:
                 res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
                 st.session_state.logged_in = True
                 st.session_state.user_email = login_email
+                load_recent_chats()
                 st.rerun()
             except:
                 st.error("❌ लॉगिन विफल! विवरण जांचें।")
@@ -154,7 +173,7 @@ elif not st.session_state.logged_in:
         if st.button("अकाउंट बनाएं ✨"):
             try:
                 res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
-                st.success("🎉 अकाउंट बन गया! अब लॉगिन करें।")
+                st.success("🎉 ACCOUNT CREATED! NOW LOGIN.")
             except Exception as e:
                 st.error(f"❌ विफल: {str(e)}")
 
@@ -206,9 +225,7 @@ else:
                 response_text = get_gemini_response(query, DEFAULT_API_KEY, st.session_state.chat_history)
                 display_text = query if not chat_media else f"📎 [{chat_media.name}] {query}"
                 
-                st.session_state.chat_history.append({"role": "user", "text": display_text})
-                st.session_state.chat_history.append({"role": "model", "text": response_text})
-                
+                # Database me insertion confirm karne ke liye Rerun se PEHLE execute karenge
                 if supabase:
                     try:
                         supabase.table("chats").insert({
@@ -219,6 +236,13 @@ else:
                         }).execute()
                     except:
                         pass
+                
+                st.session_state.chat_history.append({"role": "user", "text": display_text})
+                st.session_state.chat_history.append({"role": "model", "text": response_text})
+                
+                # Refresh sidebar list instantly
+                load_recent_chats()
+                st.invalidate_pages()
                 st.rerun()
 
         if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
