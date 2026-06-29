@@ -25,6 +25,7 @@ SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
+        # Initializing without extra environment dependencies to avoid library clashes
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as init_err:
         st.error(f"❌ डेटाबेस कनेक्शन एरर: {str(init_err)}")
@@ -63,11 +64,10 @@ if not st.session_state.logged_in:
             if not login_email or not login_password:
                 st.warning("⚠️ कृपया ईमेल और पासवर्ड दोनों भरें।")
             elif not supabase:
-                st.error("❌ डेटाबेस कॉन्फ़िगर नहीं है। कृपया Secrets चेक करें।")
+                st.error("❌ डेटाबेस कनेक्ट नहीं है। कृपया Secrets चेक करें।")
             else:
                 with st.spinner("प्रमाणित किया जा रहा है..."):
                     try:
-                        # Real Live Supabase Auth Login check
                         res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
                         st.session_state.logged_in = True
                         st.session_state.user_email = login_email
@@ -90,14 +90,13 @@ if not st.session_state.logged_in:
             else:
                 with st.spinner("नया अकाउंट बनाया जा रहा है..."):
                     try:
-                        # Real Live Supabase Signup Register
                         res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
                         st.success("🎉 अकाउंट सफलतापूर्वक बन गया! अब आप Sign In टैब में जाकर लॉगिन कर सकते हैं।")
                     except Exception as e:
                         st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
 
 else:
-    # --- MAIN APP REGION (RUNS AFTER STRICT REAL LOGIN) ---
+    # --- MAIN APP REGION ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "🔍 Orbix Chat (AI दिमाग)", 
         "🎬 मनोरंजन (Smart Streaming)", 
@@ -115,7 +114,6 @@ else:
             </style>
         """, unsafe_allow_html=True)
 
-        # Load/Sync past history from live database for this specific user
         if st.button("🔄 क्लाउड से पुराना चैट लोड करें"):
             if supabase:
                 try:
@@ -129,7 +127,6 @@ else:
                 except:
                     st.toast("⚠️ इतिहास लोड करने में समस्या हुई।")
 
-        # Render Messages
         for chat in st.session_state.chat_history:
             if chat["role"] == "user":
                 st.markdown(f'<div class="user-msg">🧑 <b>आप:</b> {chat["text"]}</div>', unsafe_allow_html=True)
@@ -161,7 +158,6 @@ else:
                 st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 
-                # Real Database Auto-Save
                 if supabase:
                     try:
                         supabase.table("chats").insert({
@@ -173,7 +169,6 @@ else:
                         pass
                 st.rerun()
 
-        # Voice TTS Output
         if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
             last_msg = st.session_state.chat_history[-1]["text"]
             if not last_msg.startswith("❌"):
