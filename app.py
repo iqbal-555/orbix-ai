@@ -49,11 +49,46 @@ if st.session_state.logged_in:
         st.session_state.chat_history = []
         st.rerun()
 
+# --- DETECT PASSWORD RESET LINK FROM URL ---
+# Checking if the URL contains password recovery tokens
+query_params = st.query_params
+is_recovery = False
+
+# Supabase inserts recovery context via hash fragment, checked via safe fallback
+if "type" in query_params and query_params["type"] == "recovery":
+    is_recovery = True
+
 # --- APP INTERFACE ROUTING ---
-if not st.session_state.logged_in:
+if is_recovery:
+    st.subheader("🔒 नया पासवर्ड सेट करें (Reset Your Password)")
+    st.info("🔄 ईमेल वेरिफिकेशन सफल! कृपया नीचे अपना नया सुरक्षित पासवर्ड दर्ज करें।")
+    
+    new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password", key="reset_new_pass")
+    confirm_new_password = st.text_input("नया पासवर्ड दोबारा डालें (Confirm New Password)", type="password", key="reset_conf_pass")
+    
+    if st.button("पासवर्ड अपडेट करें (Update Password) 💾", type="primary"):
+        if not new_password:
+            st.warning("⚠️ कृपया पासवर्ड दर्ज करें।")
+        elif len(new_password) < 6:
+            st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
+        elif new_password != confirm_new_password:
+            st.error("❌ दोनों पासवर्ड आपस में मैच नहीं कर रहे हैं।")
+        elif not supabase:
+            st.error("❌ डेटाबेस कनेक्ट नहीं है।")
+        else:
+            with st.spinner("पासवर्ड अपडेट किया जा रहा है..."):
+                try:
+                    # Update user password context inside active recovery session
+                    supabase.auth.update_user({"password": new_password})
+                    st.success("🎉 आपका पासवर्ड सफलतापूर्वक बदल गया है! अब आप लॉगिन टैब में जाकर नए पासवर्ड से लॉगिन कर सकते हैं।")
+                    # Clear query parameters to restore standard interface
+                    st.query_params.clear()
+                except Exception as e:
+                    st.error(f"❌ पासवर्ड अपडेट विफल: {str(e)}")
+                    
+elif not st.session_state.logged_in:
     st.subheader("🔒 Orbix AI सुरक्षित प्रवेश द्वार")
     
-    # ADDED THIRD TAB FOR PASSWORD RESET
     login_tab, signup_tab, reset_tab = st.tabs([
         "🔐 Sign In (लॉगिन)", 
         "📝 Sign Up (नया अकाउंट बनाएं)", 
@@ -86,7 +121,7 @@ if not st.session_state.logged_in:
         
         if st.button("अकाउंट बनाएं (Create Account) ✨"):
             if not reg_email or not reg_password:
-                st.warning("⚠️ कृपया ईमेल और密码 भरें।")
+                st.warning("⚠️ कृपया ईमेल और पासवर्ड भरें।")
             elif len(reg_password) < 6:
                 st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
             elif not supabase:
@@ -99,7 +134,6 @@ if not st.session_state.logged_in:
                     except Exception as e:
                         st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
 
-    # NEW PASSWORD RESET TAB BACKEND LOGIC
     with reset_tab:
         st.write("🔄 अपना रजिस्टर्ड ईमेल डालें, हम आपके ईमेल पर पासवर्ड रीसेट करने का लिंक भेजेंगे।")
         reset_email = st.text_input("रजिस्टर्ड ईमेल आईडी (Email)", key="reset_email_input", placeholder="your_email@gmail.com")
@@ -112,8 +146,6 @@ if not st.session_state.logged_in:
             else:
                 with st.spinner("लिंक भेजा जा रहा है..."):
                     try:
-                        # Supabase Password Reset Trigger
-                        # users will receive an email with a secure link to reset their credentials
                         supabase.auth.reset_password_for_email(reset_email)
                         st.success("🎯 रीसेट लिंक आपके ईमेल पर सफलतापूर्वक भेज दिया गया है! कृपया अपना इनबॉक्स या स्पैम फ़ोल्डर चेक करें।")
                     except Exception as e:
