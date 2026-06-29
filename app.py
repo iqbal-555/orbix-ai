@@ -9,7 +9,7 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (डेटाबेस और लॉगिन एडिशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (रियल लाइव ऑथेंटिकेशन)")
 
 # --- SECURE DATABASE & API CONFIGURATION ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -17,17 +17,17 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     DEFAULT_API_KEY = ""
 
-# Supabase Connection Keys
+# Load Real Supabase Keys from Streamlit Secrets
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 
-# Client initialization if keys exist
+# Strict Real Client Initialization
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except:
-        pass
+    except Exception as init_err:
+        st.error(f"❌ डेटाबेस कनेक्शन एरर: {str(init_err)}")
 
 # --- SESSION STATE FOR LOGIN ---
 if "logged_in" not in st.session_state:
@@ -49,49 +49,55 @@ if st.session_state.logged_in:
         st.session_state.chat_history = []
         st.rerun()
 
-# --- APP INTERFACE ROUTING (LOGIN VS MAIN APP) ---
+# --- APP INTERFACE ROUTING ---
 if not st.session_state.logged_in:
-    # --- PROFESSIONAL LOGIN & SIGNUP SCREEN ---
     st.subheader("🔒 Orbix AI सुरक्षित प्रवेश द्वार")
     
     login_tab, signup_tab = st.tabs(["🔐 Sign In (लॉगिन)", "📝 Sign Up (नया अकाउंट बनाएं)"])
     
     with login_tab:
-        login_email = st.text_input("ईमेल आईडी (Email)", key="login_email_input")
+        login_email = st.text_input("ईमेल आईडी (Email)", key="login_email_input", placeholder="example@gmail.com")
         login_password = st.text_input("पासवर्ड (Password)", type="password", key="login_pass_input")
         
         if st.button("प्रवेश करें (Login) ➔", type="primary"):
-            if not supabase:
-                # Local Bypass if database keys are not yet configured in secrets
-                st.session_state.logged_in = True
-                st.session_state.user_email = login_email if login_email else "demo@orbix.ai"
-                st.rerun()
+            if not login_email or not login_password:
+                st.warning("⚠️ कृपया ईमेल और पासवर्ड दोनों भरें।")
+            elif not supabase:
+                st.error("❌ डेटाबेस कॉन्फ़िगर नहीं है। कृपया Secrets चेक करें।")
             else:
-                try:
-                    res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
-                    st.session_state.logged_in = True
-                    st.session_state.user_email = login_email
-                    st.success("✅ लॉगिन सफल!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ लॉगिन विफल: {str(e)}")
-                    
+                with st.spinner("प्रमाणित किया जा रहा है..."):
+                    try:
+                        # Real Live Supabase Auth Login check
+                        res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
+                        st.session_state.logged_in = True
+                        st.session_state.user_email = login_email
+                        st.success("✅ लॉगिन सफल!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ लॉगिन विफल: पासवर्ड गलत है या यूजर मौजूद नहीं है।")
+                        
     with signup_tab:
-        reg_email = st.text_input("अपना ईमेल डालें (Email)", key="reg_email_input")
+        reg_email = st.text_input("अपना ईमेल डालें (Email)", key="reg_email_input", placeholder="example@gmail.com")
         reg_password = st.text_input("एक मजबूत पासवर्ड चुनें (Password)", type="password", key="reg_pass_input")
         
         if st.button("अकाउंट बनाएं (Create Account) ✨"):
-            if not supabase:
-                st.warning("⚠️ Database Configured nahi hai. Demo ke liye direct login karein.")
+            if not reg_email or not reg_password:
+                st.warning("⚠️ कृपया ईमेल और पासवर्ड भरें।")
+            elif len(reg_password) < 6:
+                st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
+            elif not supabase:
+                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
             else:
-                try:
-                    res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
-                    st.success("🎉 अकाउंट सफलतापूर्वक बन गया! कृपया लॉगिन करें।")
-                except Exception as e:
-                    st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
+                with st.spinner("नया अकाउंट बनाया जा रहा है..."):
+                    try:
+                        # Real Live Supabase Signup Register
+                        res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
+                        st.success("🎉 अकाउंट सफलतापूर्वक बन गया! अब आप Sign In टैब में जाकर लॉगिन कर सकते हैं।")
+                    except Exception as e:
+                        st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
 
 else:
-    # --- MAIN APP REGION (RUNS ONLY AFTER SUCCESSFUL LOGIN) ---
+    # --- MAIN APP REGION (RUNS AFTER STRICT REAL LOGIN) ---
     tab1, tab2, tab3, tab4 = st.tabs([
         "🔍 Orbix Chat (AI दिमाग)", 
         "🎬 मनोरंजन (Smart Streaming)", 
@@ -99,11 +105,9 @@ else:
         "🌾 कृषि टूल (Agriculture AI)"
     ])
 
-    # --- TAB 1: CHAT WITH DATABASE SAVE CAPABILITY ---
     with tab1:
         st.subheader("💬 Orbix AI से सीधी बातचीत")
         
-        # UI Styling
         st.markdown("""
             <style>
             .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; }
@@ -111,9 +115,19 @@ else:
             </style>
         """, unsafe_allow_html=True)
 
-        # Sync/Load history from database simulation
+        # Load/Sync past history from live database for this specific user
         if st.button("🔄 क्लाउड से पुराना चैट लोड करें"):
-            st.toast("⚡ इतिहास सुरक्षित रूप से सिंक हो गया!")
+            if supabase:
+                try:
+                    db_res = supabase.table("chats").select("*").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
+                    st.session_state.chat_history = []
+                    for row in db_res.data:
+                        st.session_state.chat_history.append({"role": "user", "text": row["user_msg"]})
+                        st.session_state.chat_history.append({"role": "model", "text": row["ai_reply"]})
+                    st.toast("⚡ इतिहास सुरक्षित रूप से सिंक हो गया!")
+                    st.rerun()
+                except:
+                    st.toast("⚠️ इतिहास लोड करने में समस्या हुई।")
 
         # Render Messages
         for chat in st.session_state.chat_history:
@@ -123,7 +137,7 @@ else:
                 st.markdown(f'<div class="ai-msg">🚀 <b>Orbix:</b> {chat["text"]}</div>', unsafe_allow_html=True)
 
         def get_gemini_response(user_query, key, history):
-            if not key: return "❌ AI Mind missing! Secrets me API Key set karein."
+            if not key: return "❌ AI Mind missing!"
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
             headers = {'Content-Type': 'application/json'}
             contents = []
@@ -134,10 +148,9 @@ else:
             try:
                 res = requests.post(url, headers=headers, json={"contents": contents})
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
-            except Exception as e:
-                return f"❌ Error: {str(e)}"
+            except:
+                return "❌ गूगल रिस्पॉन्स एरर।"
 
-        # Chat Input Box Component
         chat_media = st.file_uploader("➕ फोटो या वीडियो जोड़ें", type=["jpg", "jpeg", "png", "mp4"], key="chat_inline_uploader")
         
         if query := st.chat_input("Ask Orbix anything..."):
@@ -145,11 +158,10 @@ else:
                 response_text = get_gemini_response(query, DEFAULT_API_KEY, st.session_state.chat_history)
                 display_text = query if not chat_media else f"📎 [फ़ाइल: {chat_media.name}] {query}"
                 
-                # Append to current session state
                 st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 
-                # Backand Database Auto-Save trigger
+                # Real Database Auto-Save
                 if supabase:
                     try:
                         supabase.table("chats").insert({
@@ -161,7 +173,7 @@ else:
                         pass
                 st.rerun()
 
-        # Voice Response TTS Engine
+        # Voice TTS Output
         if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
             last_msg = st.session_state.chat_history[-1]["text"]
             if not last_msg.startswith("❌"):
@@ -183,6 +195,7 @@ else:
             if video_name:
                 with st.spinner("Orbix वीडियो ढूंढ रहा है..."):
                     try:
+                        import subprocess
                         command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
                         result = subprocess.run(command, shell=True, capture_output=True, text=True)
                         output_lines = result.stdout.strip().split('\n')
