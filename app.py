@@ -4,12 +4,13 @@ import os
 from gtts import gTTS
 import io
 import base64
+import uuid
 from supabase import create_client, Client
 
 st.set_page_config(page_title="Orbix AI", page_icon="🚀", layout="wide")
 
 st.title("🚀 ORBIX AI")
-st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (रियल लाइव ऑथेंटिकेशन)")
+st.caption("द नेक्स्ट-जेन बिलियन डॉलर एआई असिस्टेंट (एडवांस चैट सेशन एडिशन)")
 
 # --- SECURE DATABASE & API CONFIGURATION ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -17,11 +18,9 @@ if "GEMINI_API_KEY" in st.secrets:
 else:
     DEFAULT_API_KEY = ""
 
-# Load Real Supabase Keys from Streamlit Secrets
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
 
-# Strict Real Client Initialization
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
@@ -29,158 +28,163 @@ if SUPABASE_URL and SUPABASE_KEY:
     except Exception as init_err:
         st.error(f"❌ डेटाबेस कनेक्शन एरर: {str(init_err)}")
 
-# --- SESSION STATE FOR LOGIN ---
+# --- SESSION STATE INITIALIZATION ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = ""
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = str(uuid.uuid4())
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "recent_chats_list" not in st.session_state:
+    st.session_state.recent_chats_list = {}
 
-# --- SIDEBAR CONTROL PANEL ---
+# --- SIDEBAR CONTROL PANEL (GEMINI LOOK) ---
 st.sidebar.title("⚙️ Orbix कंट्रोल पैनल")
-language = st.sidebar.selectbox("🌐 भाषा चुनें (Select Language)", ["Hindi", "English", "Urdu", "Global"])
 
 if st.session_state.logged_in:
-    st.sidebar.success(f"👤 Active: {st.session_state.user_email}")
-    if st.sidebar.button("🚪 Logout करें"):
+    st.sidebar.success(f"👤 {st.session_state.user_email}")
+    
+    # 📝 NEW CHAT BUTTON (JUST LIKE IMAGE)
+    if st.sidebar.button("📝 New chat", use_container_width=True):
+        st.session_state.current_chat_id = str(uuid.uuid4())
+        st.session_state.chat_history = []
+        st.toast("✨ नया चैट सेशन शुरू हुआ!")
+        st.rerun()
+        
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🕒 Recent Chats")
+    
+    # Load unique chat sessions from Supabase for this user
+    if supabase:
+        try:
+            # Fetching unique sessions sorted by latest updates
+            db_res = supabase.table("chats").select("chat_id, user_msg").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
+            
+            # Map first message of each unique chat_id as its title
+            sessions = {}
+            for row in db_res.data:
+                c_id = row.get("chat_id")
+                msg = row.get("user_msg", "Purani Chat")
+                if c_id and c_id not in sessions:
+                    # Clean title if it's a media attachment
+                    title = msg if not msg.startswith("📎") else msg.split("] ", 1)[-1]
+                    sessions[c_id] = title[:28] + "..." if len(title) > 28 else title
+            
+            st.session_state.recent_chats_list = sessions
+        except:
+            pass
+
+    # Render Recent Chat Buttons dynamically in the sidebar
+    if st.session_state.recent_chats_list:
+        for s_id, s_title in st.session_state.recent_chats_list.items():
+            # Highlight current active chat
+            is_active = "🎯 " if s_id == st.session_state.current_chat_id else "💬 "
+            if st.sidebar.button(f"{is_active}{s_title}", key=f"session_{s_id}", use_container_width=True):
+                st.session_state.current_chat_id = s_id
+                # Fetch messages for selected session
+                try:
+                    history_res = supabase.table("chats").select("*").eq("chat_id", s_id).order("created_at", ascending=True).execute()
+                    st.session_state.chat_history = []
+                    for row in history_res.data:
+                        st.session_state.chat_history.append({"role": "user", "text": row["user_msg"]})
+                        st.session_state.chat_history.append({"role": "model", "text": row["ai_reply"]})
+                    st.rerun()
+                except:
+                    st.error("❌ चैट लोड करने में दिक्कत हुई।")
+    else:
+        st.sidebar.caption("कोई पुरानी चैट नहीं मिली।")
+
+    st.sidebar.markdown("---")
+    language = st.sidebar.selectbox("🌐 भाषा (Language)", ["Hindi", "English", "Urdu", "Global"])
+    
+    if st.sidebar.button("Log out 🚪", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.user_email = ""
         st.session_state.chat_history = []
+        st.session_state.current_chat_id = str(uuid.uuid4())
         st.rerun()
 
-# --- DETECT DEFAULT SUPABASE PASSWORD RESET ---
-# Smart detector for default hash parameters (#access_token) sent by Supabase
+# --- BACKUP PASSWORD RESET CHECK ---
 is_recovery = False
-try:
-    # Streamlit experimental or standard fragment checking
-    if st.experimental_user.get("is_logged_in", False) == False:
-         # Checking query params fallback or hash detection logic via simple state trigger
-         if "account_recovery" in st.session_state and st.session_state.account_recovery:
-             is_recovery = True
-except:
-    pass
-
-# Direct safe check via custom query fallback toggled by user action
 query_params = st.query_params
 if "type" in query_params and query_params["type"] == "recovery":
     is_recovery = True
 
-# --- RECOVERY MANUAL OVERRIDE BUTTON FOR MOBILE BROWSERS ---
-# If some mobile browsers block the hash parameters, user can force the view
 if not st.session_state.logged_in and not is_recovery:
-    if st.sidebar.checkbox("🔑 पासवर्ड बदलने का बॉक्स खोलें (Force Reset Password Screen)"):
+    if st.sidebar.checkbox("🔑 Force Reset Screen"):
         is_recovery = True
 
 # --- APP INTERFACE ROUTING ---
 if is_recovery:
-    st.subheader("🔒 नया पासवर्ड सेट करें (Reset Your Password)")
-    st.info("🔄 कृपया नीचे अपना नया सुरक्षित पासवर्ड दर्ज करें।")
-    
-    new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password", key="reset_new_pass")
-    confirm_new_password = st.text_input("नया पासवर्ड दोबारा डालें (Confirm New Password)", type="password", key="reset_conf_pass")
+    st.subheader("🔒 नया पासवर्ड सेट करें (Reset Password)")
+    new_password = st.text_input("नया मजबूत पासवर्ड (New Password)", type="password")
+    confirm_new_password = st.text_input("पासवर्ड दोबारा डालें", type="password")
     
     if st.button("पासवर्ड अपडेट करें (Update Password) 💾", type="primary"):
-        if not new_password:
-            st.warning("⚠️ कृपया पासवर्ड दर्ज करें।")
-        elif len(new_password) < 6:
+        if len(new_password) < 6:
             st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
         elif new_password != confirm_new_password:
-            st.error("❌ दोनों पासवर्ड आपस में मैच नहीं कर रहे हैं।")
-        elif not supabase:
-            st.error("❌ डेटाबेस कनेक्ट नहीं है।")
+            st.error("❌ पासवर्ड मैच नहीं हुए।")
         else:
-            with st.spinner("पासवर्ड अपडेट किया जा रहा है..."):
-                try:
-                    supabase.auth.update_user({"password": new_password})
-                    st.success("🎉 आपका पासवर्ड सफलतापूर्वक बदल गया है! अब आप लॉगिन टैब में जाकर नए पासवर्ड से लॉगिन कर सकते हैं।")
-                    st.query_params.clear()
-                    st.session_state.account_recovery = False
-                except Exception as e:
-                    st.error(f"❌ पासवर्ड अपडेट विफल: {str(e)}")
+            try:
+                supabase.auth.update_user({"password": new_password})
+                st.success("🎉 पासवर्ड बदल गया! अब लॉगिन करें।")
+                st.query_params.clear()
+            except Exception as e:
+                st.error(f"❌ विफल: {str(e)}")
                     
 elif not st.session_state.logged_in:
     st.subheader("🔒 Orbix AI सुरक्षित प्रवेश द्वार")
-    
-    login_tab, signup_tab, reset_tab = st.tabs(["🔐 Sign In (लॉगिन)", "📝 Sign Up (नया अकाउंट बनाएं)", "🔑 Forgot Password (पासवर्ड भूल गए?)"])
+    login_tab, signup_tab, reset_tab = st.tabs(["🔐 Sign In", "📝 Sign Up", "🔑 Forgot Password"])
     
     with login_tab:
-        login_email = st.text_input("ईमेल आईडी (Email)", key="login_email_input", placeholder="example@gmail.com")
-        login_password = st.text_input("पासवर्ड (Password)", type="password", key="login_pass_input")
-        
+        login_email = st.text_input("ईमेल आईडी (Email)", key="l_email")
+        login_password = st.text_input("पासवर्ड (Password)", type="password", key="l_pass")
         if st.button("प्रवेश करें (Login) ➔", type="primary"):
-            if not login_email or not login_password:
-                st.warning("⚠️ कृपया ईमेल और पासवर्ड दोनों भरें।")
-            elif not supabase:
-                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
-            else:
-                with st.spinner("प्रमाणित किया जा रहा है..."):
-                    try:
-                        res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
-                        st.session_state.logged_in = True
-                        st.session_state.user_email = login_email
-                        st.success("✅ लॉगिन सफल!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ लॉगिन विफल: पासवर्ड गलत है या यूजर मौजूद नहीं है।")
+            try:
+                res = supabase.auth.sign_in_with_password({"email": login_email, "password": login_password})
+                st.session_state.logged_in = True
+                st.session_state.user_email = login_email
+                st.rerun()
+            except:
+                st.error("❌ लॉगिन विफल! विवरण जांचें।")
                         
     with signup_tab:
-        reg_email = st.text_input("अपना ईमेल डालें (Email)", key="reg_email_input", placeholder="example@gmail.com")
-        reg_password = st.text_input("एक मजबूत पासवर्ड चुनें (Password)", type="password", key="reg_pass_input")
-        
-        if st.button("अकाउंट बनाएं (Create Account) ✨"):
-            if not reg_email or not reg_password:
-                st.warning("⚠️ कृपया ईमेल और पासवर्ड भरें।")
-            elif len(reg_password) < 6:
-                st.warning("⚠️ पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।")
-            elif not supabase:
-                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
-            else:
-                with st.spinner("नया अकाउंट बनाया जा रहा है..."):
-                    try:
-                        res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
-                        st.success("🎉 अकाउंट सफलतापूर्वक बन गया! अब आप Sign In टैब में जाकर लॉगिन कर सकते हैं।")
-                    except Exception as e:
-                        st.error(f"❌ रजिस्ट्रेशन विफल: {str(e)}")
+        reg_email = st.text_input("ईमेल आईडी डालें", key="r_email")
+        reg_password = st.text_input("पासवर्ड चुनें", type="password", key="r_pass")
+        if st.button("अकाउंट बनाएं ✨"):
+            try:
+                res = supabase.auth.sign_up({"email": reg_email, "password": reg_password})
+                st.success("🎉 अकाउंट बन गया! अब लॉगिन करें।")
+            except Exception as e:
+                st.error(f"❌ विफल: {str(e)}")
 
     with reset_tab:
-        st.write("🔄 अपना रजिस्टर्ड ईमेल डालें, हम आपके ईमेल पर पासवर्ड रीसेट करने का लिंक भेजेंगे।")
-        reset_email = st.text_input("रजिस्टर्ड ईमेल आईडी (Email)", key="reset_email_input", placeholder="your_email@gmail.com")
-        
-        if st.button("रीसेट लिंक भेजें (Send Reset Link) ✉️"):
-            if not reset_email:
-                st.warning("⚠️ कृपया अपना ईमेल आईडी दर्ज करें।")
-            elif not supabase:
-                st.error("❌ डेटाबेस कनेक्ट नहीं है।")
-            else:
-                with st.spinner("लिंक भेजा जा रहा है..."):
-                    try:
-                        supabase.auth.reset_password_for_email(reset_email)
-                        st.success("🎯 रीसेट लिंक आपके ईमेल पर सफलतापूर्वक भेज दिया गया है! कृपया अपना इनबॉक्स या स्पैम फ़ोल्डर चेक करें।")
-                    except Exception as e:
-                        st.error(f"❌ लिंक भेजने में विफल: {str(e)}")
+        reset_email = st.text_input("रजिस्टर्ड ईमेल आईडी", key="reset_em")
+        if st.button("रीसेट लिंक भेजें ✉️"):
+            try:
+                supabase.auth.reset_password_for_email(reset_email)
+                st.success("🎯 लिंक आपके ईमेल पर भेज दिया गया है!")
+            except Exception as e:
+                st.error(f"❌ विफल: {str(e)}")
 
 else:
-    # --- MAIN APP REGION ---
-    tab1, tab2, tab3, tab4 = st.tabs(["🔍 Orbix Chat (AI दिमाग)", "🎬 मनोरंजन (Smart Streaming)", "📚 शिक्षा (1st to M.Sc)", "🌾 कृषि टूल (Agriculture AI)"])
+    # --- MAIN CHAT APP REGION ---
+    tab1, tab2, tab3, tab4 = st.tabs(["🔍 Orbix Chat", "🎬 मनोरंजन", "📚 शिक्षा", "🌾 कृषि"])
 
     with tab1:
         st.subheader("💬 Orbix AI से सीधी बातचीत")
-        st.markdown("<style>.user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #0d47a1; } .ai-msg { background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: left; color: #1b5e20; }</style>", unsafe_allow_html=True)
+        
+        st.markdown("""
+            <style>
+            .user-msg { background-color: #e1f5fe; padding: 10px; border-radius: 10px; margin: 5px 0; color: #0d47a1; }
+            .ai-msg { background-color: #f1f8e9; padding: 10px; border-radius: 10px; margin: 5px 0; color: #1b5e20; }
+            </style>
+        """, unsafe_allow_html=True)
 
-        if st.button("🔄 क्लाउड से पुराना चैट लोड करें"):
-            if supabase:
-                try:
-                    db_res = supabase.table("chats").select("*").eq("user_email", st.session_state.user_email).order("created_at", ascending=True).execute()
-                    st.session_state.chat_history = []
-                    for row in db_res.data:
-                        st.session_state.chat_history.append({"role": "user", "text": row["user_msg"]})
-                        st.session_state.chat_history.append({"role": "model", "text": row["ai_reply"]})
-                    st.toast("⚡ इतिहास सुरक्षित रूप से सिंक हो गया!")
-                    st.rerun()
-                except:
-                    st.toast("⚠️ इतिहास लोड करने में समस्या हुई।")
-
+        # Render current conversation
         for chat in st.session_state.chat_history:
             if chat["role"] == "user":
                 st.markdown(f'<div class="user-msg">🧑 <b>आप:</b> {chat["text"]}</div>', unsafe_allow_html=True)
@@ -188,37 +192,41 @@ else:
                 st.markdown(f'<div class="ai-msg">🚀 <b>Orbix:</b> {chat["text"]}</div>', unsafe_allow_html=True)
 
         def get_gemini_response(user_query, key, history):
-            if not key: return "❌ AI Mind missing!"
             url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
-            headers = {'Content-Type': 'application/json'}
             contents = []
             for chat in history:
-                role_type = "user" if chat["role"] == "user" else "model"
-                contents.append({"role": role_type, "parts": [{"text": chat["text"]}]})
+                contents.append({"role": "user" if chat["role"] == "user" else "model", "parts": [{"text": chat["text"]}]})
             contents.append({"role": "user", "parts": [{"text": user_query}]})
             try:
-                res = requests.post(url, headers=headers, json={"contents": contents})
+                res = requests.post(url, json={"contents": contents})
                 return res.json()['candidates'][0]['content']['parts'][0]['text']
             except:
                 return "❌ गूगल रिस्पॉन्स एरर।"
 
-        chat_media = st.file_uploader("➕ फोटो या वीडियो जोड़ें", type=["jpg", "jpeg", "png", "mp4"], key="chat_inline_uploader")
+        chat_media = st.file_uploader("➕ फोटो या वीडियो जोड़ें", type=["jpg", "jpeg", "png", "mp4"])
         
         if query := st.chat_input("Ask Orbix anything..."):
             with st.spinner("Orbix सोच रहा है..."):
                 response_text = get_gemini_response(query, DEFAULT_API_KEY, st.session_state.chat_history)
-                display_text = query if not chat_media else f"📎 [फ़ाइल: {chat_media.name}] {query}"
+                display_text = query if not chat_media else f"📎 [{chat_media.name}] {query}"
                 
                 st.session_state.chat_history.append({"role": "user", "text": display_text})
                 st.session_state.chat_history.append({"role": "model", "text": response_text})
                 
+                # Auto-save inside specific chat session id
                 if supabase:
                     try:
-                        supabase.table("chats").insert({"user_email": st.session_state.user_email, "user_msg": display_text, "ai_reply": response_text}).execute()
+                        supabase.table("chats").insert({
+                            "user_email": st.session_state.user_email,
+                            "chat_id": st.session_state.current_chat_id,
+                            "user_msg": display_text,
+                            "ai_reply": response_text
+                        }).execute()
                     except:
                         pass
                 st.rerun()
 
+        # Audio Output for Latest message
         if st.session_state.chat_history and st.session_state.chat_history[-1]["role"] == "model":
             last_msg = st.session_state.chat_history[-1]["text"]
             if not last_msg.startswith("❌"):
@@ -231,24 +239,21 @@ else:
                 except:
                     pass
 
-    # --- TAB 2: SMART ENTERTAINMENT PLAYER ---
+    # --- OTHER TABS ---
     with tab2:
         st.subheader("🎬 Orbix स्मार्ट मनोरंजन प्लेयर")
-        video_name = st.text_input("📝 वीडियो या गाने का नाम लिखें:", placeholder="उदा. मुबारक हो तुमको शादी तुम्हारी", key="entertainment_search_box")
-        
-        if st.button("वीडियो ढूंढें 🔍", type="primary", key="search_ent_btn"):
-            if video_name:
-                with st.spinner("Orbix वीडियो ढूंढ रहा है..."):
-                    try:
-                        import subprocess
-                        command = f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title'
-                        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                        output_lines = result.stdout.strip().split('\n')
-                        if len(output_lines) >= 2:
-                            st.write(f"🎯 वीडियो मिल गया: **{output_lines[0]}**")
-                            st.video(f"https://www.youtube.com/watch?v={output_lines[1]}")
-                    except:
-                        st.error("❌ खोजने में समस्या हुई।")
+        video_name = st.text_input("📝 वीडियो का नाम लिखें:")
+        if st.button("वीडियो ढूंढें 🔍") and video_name:
+            with st.spinner("ढूंढ रहा है..."):
+                try:
+                    import subprocess
+                    result = subprocess.run(f'yt-dlp "ytsearch1:{video_name}" --get-id --get-title', shell=True, capture_output=True, text=True)
+                    output_lines = result.stdout.strip().split('\n')
+                    if len(output_lines) >= 2:
+                        st.write(f"🎯 **{output_lines[0]}**")
+                        st.video(f"https://www.youtube.com/watch?v={output_lines[1]}")
+                except:
+                    st.error("❌ खोजने में समस्या हुई।")
 
-    with tab3: st.subheader("📚 एडवांस ग्लोबल शिक्षा AI"); st.info("जल्द आ रहा है।")
-    with tab4: st.subheader("🌾 कृषि टूल (Agriculture AI)"); st.info("जल्द आ रहा है।")
+    with tab3: st.info("जल्द आ रहा है।")
+    with tab4: st.info("जल्द आ रहा है।")
