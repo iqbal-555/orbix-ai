@@ -2,3 +2,4 @@
 requests
 gTTS
 yt-dlp
+supabase==2.4.0
